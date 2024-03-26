@@ -1,6 +1,8 @@
 notebooks
 figures
 largedata
+.idea
+.idea/*
 
 cogwheel/data/gwosc_files
 cogwheel/data/gwosc_files/*

@@ -9,9 +9,8 @@ class PopulationModelPrior(Prior):
     Abstract prior class to define a population model
     f(theta|\lambda) - so knows how to deal with lambdas???
     """
-    
     @abstractmethod
-    def __init__(self, hyperparameters_range_dic, **kwargs):
+    def __init__(self, hyperparameter_range_dic, **kwargs):
         """
         Instantiate prior classes and define lambdas 
         """

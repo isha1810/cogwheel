@@ -3,71 +3,310 @@
 from abc import ABC, abstractmethod
 from cogwheel.prior import Prior
 
+import inspect
+import itertools
+import pandas as pd
+import numpy as np
+
+from cogwheel import utils
+
 
 class PopulationModelPrior(Prior):
     """
     Abstract prior class to define a population model
     f(theta|\lambda) - so knows how to deal with lambdas???
     """
+    hyperparameter_range_dic = {}
     
     @abstractmethod
-    def __init__(self, hyperparameters_range_dic, **kwargs):
+    def __init__(self, hyperparams_range_dic, **kwargs):
         """
         Instantiate prior classes and define lambdas 
         """
-        super.__init__(**kwargs)
-        self.hyperparameter_range_dic = hyperparameter_range_dic
-        if missing := (self.__class__.standard_par_dic.keys()
-                       - self.standard_par_dic.keys()):
-            raise ValueError(f'`standard_par_dic` is missing keys: {missing}')
-
-        if extra := (self.standard_par_dic.keys()
-                     - self.__class__.standard_par_dic.keys()):
-            raise ValueError(f'`standard_par_dic` has extra keys: {extra}')
-
+        self.hyperparameter_range_dic=hyperparams_range_dic
+        super().__init__(**kwargs)
 
     def set_hyperparameter_range_dic(self, hyperparameter_range_dic):
         self.hyperparameter_range_dic = hyperparameter_range_dic
         return
-
-
-# class CombinedPopulationModelPrior(Prior):
-#     """
-#     combine population model prior and regular prior classes
-#     """
-#     @property
-#     @staticmethod
-#     @abstractmethod
-#     def prior_classes():
-#         """List of `Prior` subclasses with the priors to combine."""
     
-#     def __init__(self, *args, **kwargs):
-#         """
-#         Instantiate prior classes and define `range_dic`.
+    @staticmethod
+    def get_init_dict():
+        """
+        Return dictionary with keyword arguments to reproduce the class
+        instance. Subclasses should override this method if they require
+        initialization parameters.
+        """
+        return {}
 
-#         The list of parameters to pass to a subclass `cls` can be found
-#         using `cls.init_parameters()`.
-#         """
-#         kwargs.update(dict(zip([par.name for par in self.init_parameters()],
-#                                args)))
+class CombinedPopulationPrior(Prior):
+    """
+    Make a new `Prior` subclass combining other `Prior` subclasses.
 
-#         # Check for all required arguments at once:
-#         required = [
-#             par.name for par in self.init_parameters(include_optional=False)]
-#         if missing := [par for par in required if par not in kwargs]:
-#             raise TypeError(f'Missing {len(missing)} required arguments: '
-#                             f'{", ".join(missing)}')
+    Schematically, combine priors like [P(x), P(y|x)] → P(x, y).
+    This class has a single abstract method `prior_classes` which is a
+    list of `Prior` subclasses that we want to combine.
+    Arguments to the `__init__` of the classes in `prior_classes` are
+    passed by keyword, so it is important that those arguments have
+    repeated names if and only if they are intended to have the same
+    value.
+    Also, the `__init__` of all classes in `prior_classes` need to
+    accept `**kwargs` and forward them to `super().__init__()`.
+    """
+    @property
+    @staticmethod
+    @abstractmethod
+    def prior_classes():
+        """List of `Prior` subclasses with the priors to combine."""
 
-#         self.subpriors = [cls(**kwargs) for cls in self.prior_classes]
+    def __init__(self, *args, **kwargs):
+        """
+        Instantiate prior classes and define `range_dic`.
 
-#         self.range_dic = {}
-#         for subprior in self.subpriors:
-#             self.range_dic.update(subprior.range_dic)
+        The list of parameters to pass to a subclass `cls` can be found
+        using `cls.init_parameters()`.
+        """
+        kwargs.update(dict(zip([par.name for par in self.init_parameters()],
+                               args)))
 
-#         super().__init__(**kwargs)
-        
-#     def 
+        # Check for all required arguments at once:
+        required = [
+            par.name for par in self.init_parameters(include_optional=False)]
+        if missing := [par for par in required if par not in kwargs]:
+            raise TypeError(f'Missing {len(missing)} required arguments: '
+                            f'{", ".join(missing)}')
 
+        self.subpriors = [cls(**kwargs) for cls in self.prior_classes]
+
+        self.range_dic = {}
+        for subprior in self.subpriors:
+            self.range_dic.update(subprior.range_dic)
+
+        super().__init__(**kwargs)
+
+    def __init_subclass__(cls):
+        """
+        Define the following attributes and methods from the combination
+        of priors in `cls.prior_classes`:
+
+            * `range_dic`
+            * `hyperparams_range_dic`
+            * `standard_params`
+            * `conditioned_on`
+            * `periodic_params`
+            * `reflective_params`
+            * `folded_reflected_params`
+            * `folded_shifted_params`
+            * `transform`
+            * `inverse_transform`
+            * `lnprior_and_transform`
+            * `lnprior`
+
+        which are used to override the corresponding attributes and
+        methods of the new `CombinedPopulationPrior` subclass.
+        """
+        super().__init_subclass__()
+
+        cls._set_params()
+        direct_params = cls.sampled_params + cls.conditioned_on
+        inverse_params = cls.standard_params + cls.conditioned_on
+
+        def transform(self, *par_vals, **par_dic):
+            """
+            Transform sampled parameter values to standard parameter
+            values.
+            Take `self.sampled_params + self.conditioned_on` parameters
+            and return a dictionary with `self.standard_params`
+            parameters.
+            """
+            par_dic.update(dict(zip(direct_params, par_vals)))
+            for subprior in self.subpriors:
+                input_dic = {par: par_dic[par]
+                             for par in (subprior.sampled_params
+                                         + subprior.conditioned_on)}
+                par_dic.update(subprior.transform(**input_dic))
+            return {par: par_dic[par] for par in self.standard_params}
+
+        def inverse_transform(self, *par_vals, **par_dic):
+            """
+            Transform standard parameter values to sampled parameter values.
+            Take `self.standard_params + self.conditioned_on` parameters and
+            return a dictionary with `self.sampled_params` parameters.
+            """
+            par_dic.update(dict(zip(inverse_params, par_vals)))
+            for subprior in self.subpriors:
+                input_dic = {par: par_dic[par]
+                             for par in (subprior.standard_params
+                                         + subprior.conditioned_on)}
+                par_dic.update(subprior.inverse_transform(**input_dic))
+            return {par: par_dic[par] for par in self.sampled_params}
+
+        def lnprior_and_transform(self, *par_vals, **par_dic):
+            """
+            Take sampled and conditioned-on parameters, and return a
+            2-element tuple with the log of the prior and a dictionary
+            with standard parameters.
+            The reason for this function is that it is necessary to
+            compute the transform in order to compute the prior, so if
+            both are wanted it is efficient to compute them at once.
+            """
+            par_dic.update(dict(zip(direct_params, par_vals)))
+            standard_par_dic = self.transform(**par_dic)
+            par_dic.update(standard_par_dic)
+
+            lnp = 0
+            for subprior in self.subpriors:
+                input_dic = {par: par_dic[par]
+                             for par in (subprior.sampled_params
+                                         + subprior.conditioned_on)}
+                lnp += subprior.lnprior(**input_dic)
+            return lnp, standard_par_dic
+
+        def lnprior(self, *par_vals, **par_dic):
+            """
+            Natural logarithm of the prior probability density.
+            Take `self.sampled_params + self.conditioned_on` parameters
+            and return a float.
+            """
+            return self.lnprior_and_transform(*par_vals, **par_dic)[0]
+
+
+        # Witchcraft to fix the functions' signatures:
+        self_parameter = inspect.Parameter('self',
+                                           inspect.Parameter.POSITIONAL_ONLY)
+        direct_parameters = [self_parameter] + [
+            inspect.Parameter(par, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+            for par in direct_params]
+        inverse_parameters = [self_parameter] + [
+            inspect.Parameter(par, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+            for par in inverse_params]
+        cls._change_signature(transform, direct_parameters)
+        cls._change_signature(inverse_transform, inverse_parameters)
+        cls._change_signature(lnprior, direct_parameters)
+        cls._change_signature(lnprior_and_transform, direct_parameters)
+
+        cls.transform = transform
+        cls.inverse_transform = inverse_transform
+        cls.lnprior_and_transform = lnprior_and_transform
+        cls.lnprior = lnprior
+
+    @classmethod
+    def _set_params(cls):
+        """
+        Set these class attributes:
+            * `range_dic`
+            * `hyperparams_range_dic`
+            * `standard_params`
+            * `conditioned_on`
+            * `periodic_params`
+            * `reflective_params`
+            * `folded_reflected_params`.
+            * `folded_shifted_params`
+        Raise `PriorError` if subpriors are incompatible.
+        """
+        cls.range_dic = {}
+        for prior_class in cls.prior_classes:
+            cls.range_dic.update(prior_class.range_dic)
+            
+        cls.hyperparams_range_dic = {}
+        for prior_class in cls.prior_classes:
+            try:
+                cls.hyperparams_range_dic.update(prior_class.hyperparams_range_dic)
+            except AttributeError:
+                continue
+
+        for params in ('standard_params', 'conditioned_on',
+                       'periodic_params', 'reflective_params',
+                       'folded_reflected_params', 'folded_shifted_params',):
+            setattr(cls, params, [par for prior_class in cls.prior_classes
+                                  for par in getattr(prior_class, params)])
+
+        cls.conditioned_on = list(dict.fromkeys(
+            [par for par in cls.conditioned_on
+             if not par in cls.standard_params]))
+
+        # Check that the provided prior_classes can be combined:
+        if len(cls.sampled_params) != len(set(cls.sampled_params)):
+            raise PriorError(
+                f'Priors {cls.prior_classes} cannot be combined due to '
+                f'repeated sampled parameters: {cls.sampled_params}')
+
+        if len(cls.standard_params) != len(set(cls.standard_params)):
+            raise PriorError(
+                f'Priors {cls.prior_classes} cannot be combined due to '
+                f'repeated standard parameters: {cls.standard_params}')
+
+        for preceding, following in itertools.combinations(
+                cls.prior_classes, 2):
+            for conditioned_par in preceding.conditioned_on:
+                if conditioned_par in following.standard_params:
+                    raise PriorError(
+                        f'{following} defines {conditioned_par}, which '
+                        f'{preceding} requires. {following} should come before'
+                        f' {preceding}.')
+
+    @classmethod
+    def init_parameters(cls, include_optional=True):
+        """
+        Return list of `inspect.Parameter` objects, for the aggregated
+        parameters taken by the `__init__` of `prior_classes`, without
+        duplicates and sorted by parameter kind (i.e. positional
+        arguments first, keyword arguments last). The `self` parameter
+        is excluded.
+
+        Parameters
+        ----------
+        include_optional: bool, whether to include parameters with
+                          defaults in the returned list.
+        """
+        signatures = [inspect.signature(prior_class.__init__)
+                      for prior_class in cls.prior_classes]
+        all_parameters = [par for signature in signatures
+                          for par in list(signature.parameters.values())[1:]]
+        sorted_unique_parameters = sorted(
+            dict.fromkeys(all_parameters),
+            key=lambda par: (par.kind, par.default is not par.empty))
+
+        if include_optional:
+            return sorted_unique_parameters
+
+        return [par for par in sorted_unique_parameters
+                if par.default is par.empty
+                and par.kind not in (par.VAR_POSITIONAL, par.VAR_KEYWORD)]
+
+    @staticmethod
+    def _change_signature(func, parameters):
+        """
+        Change the signature of a function to explicitize the parameters
+        it takes. Use with caution.
+
+        Parameters
+        ----------
+        func: function.
+        parameters: sequence of `inspect.Parameter` objects.
+        """
+        func.__signature__ = inspect.signature(func).replace(
+            parameters=parameters)
+
+    def get_init_dict(self):
+        """
+        Return dictionary with keyword arguments to reproduce the class
+        instance.
+        """
+        init_dicts = [subprior.get_init_dict() for subprior in self.subpriors]
+        return utils.merge_dictionaries_safely(*init_dicts)
+
+    @classmethod
+    def get_fast_sampled_params(cls, fast_standard_params):
+        """
+        Return a list of parameter names that map to given "fast"
+        standard parameters, useful for sampling fast-slow parameters.
+        Updating fast sampling parameters is guaranteed to only change
+        fast standard parameters.
+        """
+        return [par for prior_class in cls.prior_classes
+                for par in prior_class.get_fast_sampled_params(
+                    fast_standard_params)]
 
 
 

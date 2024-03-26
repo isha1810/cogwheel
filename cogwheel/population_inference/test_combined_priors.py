@@ -16,7 +16,7 @@ from cogwheel.gw_prior.combined import RegisteredPriorMixin
 from cogwheel.gw_prior.miscellaneous import (ZeroTidalDeformabilityPrior,
                                              FixedReferenceFrequencyPrior)
 from cogwheel.gw_prior.spin import UniformEffectiveSpinPrior, ZeroInplaneSpinsPrior
-from cogwheel.population_inference.population_models import PopulationModelPrior
+from cogwheel.population_inference.population_models import PopulationModelPrior, CombinedPopulationPrior
 from scipy import interpolate
 
 
@@ -75,14 +75,13 @@ class GaussianTestPopulationPrior(IdentityTransformMixin, PopulationModelPrior):
     standard_params = ['m1', 'm2']
     range_dic = {}              
     conditioned_on = []
-    range_dic = {}
     hyperparams_range_dic = {'lambda1':(-10, 10), 'lambda2':(-10,10)}
     
     def __init__(self, *, lambda1_min=10, lambda1_max=10, 
                  lambda2_min=-10, lambda2_max=10, **kwargs):
         self.hyperparams_range_dic = {'lambda1':(lambda1_min, lambda1_max),
                                       'lambda2':(lambda2_min,lambda2_max)}
-        super().__init__(hyperparameters_range_dic, **kwargs)
+        super().__init__(self.hyperparams_range_dic, **kwargs)
     
     
     def lnprior(self, lambda1, lambda2):
@@ -106,9 +105,7 @@ class GaussianTestPopulationPrior(IdentityTransformMixin, PopulationModelPrior):
         initialization parameters.
         """
         return hyperparams_range_dic
-    
-    
-    
+
     
 class TestPrior(RegisteredPriorMixin, CombinedPrior):
     """
@@ -133,7 +130,7 @@ class FixedTestPrior(RegisteredPriorMixin, CombinedPrior):
     prior_classes = [FixedInclinationPrior,
                      FixedSkyLocationPrior,
                      FixedTimePrior,
-                     FixedPolarizationPrior,\
+                     FixedPolarizationPrior,
                      FixedPhasePrior,
                      GaussianTestPrior,
                      FixedEffectiveSpinPrior,
@@ -142,7 +139,7 @@ class FixedTestPrior(RegisteredPriorMixin, CombinedPrior):
                      FixedReferenceFrequencyPrior,
                      FixedDistancePrior]
 
-class FixedTestPopulationPrior(RegisteredPriorMixin, CombinedPrior):
+class FixedTestPopulationPrior(RegisteredPriorMixin, CombinedPopulationPrior):
     """
     Prior class test fix everything but 2d gaussian
     """

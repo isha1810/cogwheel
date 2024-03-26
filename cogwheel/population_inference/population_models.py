@@ -16,14 +16,15 @@ class PopulationModelPrior(Prior):
     Abstract prior class to define a population model
     f(theta|\lambda) - so knows how to deal with lambdas???
     """
+
     hyperparameter_range_dic = {}
     
     @abstractmethod
-    def __init__(self, hyperparams_range_dic, **kwargs):
+    def __init__(self, hyperparameter_range_dic, **kwargs):
         """
         Instantiate prior classes and define lambdas 
         """
-        self.hyperparameter_range_dic=hyperparams_range_dic
+        self.hyperparameter_range_dic=hyperparameter_range_dic
         super().__init__(**kwargs)
 
     def set_hyperparameter_range_dic(self, hyperparameter_range_dic):
@@ -90,7 +91,7 @@ class CombinedPopulationPrior(Prior):
         of priors in `cls.prior_classes`:
 
             * `range_dic`
-            * `hyperparams_range_dic`
+            * `hyperparameter_range_dic`
             * `standard_params`
             * `conditioned_on`
             * `periodic_params`
@@ -195,7 +196,7 @@ class CombinedPopulationPrior(Prior):
         """
         Set these class attributes:
             * `range_dic`
-            * `hyperparams_range_dic`
+            * `hyperparameter_range_dic`
             * `standard_params`
             * `conditioned_on`
             * `periodic_params`
@@ -208,10 +209,10 @@ class CombinedPopulationPrior(Prior):
         for prior_class in cls.prior_classes:
             cls.range_dic.update(prior_class.range_dic)
             
-        cls.hyperparams_range_dic = {}
+        cls.hyperparameter_range_dic = {}
         for prior_class in cls.prior_classes:
             try:
-                cls.hyperparams_range_dic.update(prior_class.hyperparams_range_dic)
+                cls.hyperparameter_range_dic.update(prior_class.hyperparameter_range_dic)
             except AttributeError:
                 continue
 

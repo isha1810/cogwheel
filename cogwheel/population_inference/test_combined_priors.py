@@ -73,7 +73,7 @@ class GaussianTestPopulationPrior(IdentityTransformMixin, PopulationModelPrior):
     Prior to test the evidence returned by sampler
     '''
     standard_params = ['m1', 'm2']
-    range_dic = {}              
+    range_dic = {}
     conditioned_on = []
     hyperparams_range_dic = {'lambda1':(-10, 10), 'lambda2':(-10,10)}
     
@@ -146,7 +146,7 @@ class FixedTestPopulationPrior(RegisteredPriorMixin, CombinedPopulationPrior):
     prior_classes = [FixedInclinationPrior,
                      FixedSkyLocationPrior,
                      FixedTimePrior,
-                     FixedPolarizationPrior,\
+                     FixedPolarizationPrior,
                      FixedPhasePrior,
                      GaussianTestPopulationPrior,
                      FixedEffectiveSpinPrior,

@@ -25,6 +25,7 @@ class GaussianTestPrior(IdentityTransformMixin, Prior):
     Prior to test the evidence returned by sampler
     '''
     range_dic = {'m1': (-10,10), 'm2': (-10,10)}
+    standard_params=['m1', 'm2']
         
     def lnprior(self, m1, m2):
         '''
@@ -68,31 +69,32 @@ class FixedEffectiveSpinPrior(FixedPrior):
     standard_par_dic = {'s1z': 0.0, 's2z': 0.0}    
     
 # ************************ Population Stuff **************************
-class GaussianTestPopulationPrior(IdentityTransformMixin, PopulationModelPrior):
+
+class GaussianTestPopulationPrior(PopulationModelPrior):
     '''
     Prior to test the evidence returned by sampler
     '''
     standard_params = ['m1', 'm2']
-    range_dic = {}
     conditioned_on = []
-    hyperparams_range_dic = {'lambda1':(-10, 10), 'lambda2':(-10,10)}
+    range_dic = {'m1': (-10,10), 'm2': (-10,10)}
+    hyperparam_range_dic = {'lambda1':(-10, 10), 'lambda2':(-10,10)}
     
     def __init__(self, *, lambda1_min=10, lambda1_max=10, 
                  lambda2_min=-10, lambda2_max=10, **kwargs):
-        self.hyperparams_range_dic = {'lambda1':(lambda1_min, lambda1_max),
+        self.hyperparam_range_dic = {'lambda1':(lambda1_min, lambda1_max),
                                       'lambda2':(lambda2_min,lambda2_max)}
-        super().__init__(self.hyperparams_range_dic, **kwargs)
+        super().__init__(self.hyperparam_range_dic, **kwargs)
     
     
-    def lnprior(self, lambda1, lambda2):
-        '''
-        ln prior is gaussian normalized
+    def lnprior(self, m1, m2, lambda1, lambda2):
+        '''  
+        ln prior is gaussian normalized, with means [lambda1, lambda2]
         '''
         Cinv = np.array([[1/(0.05)**2, 0], [0, (1/0.05)**2]])
         norm = np.sqrt((2*np.pi)**2 / np.linalg.det(Cinv))
-        cube = np.array([lambda1,lambda2])
-        mean = np.array([0.5, 0.5])
-        lnprior_unnorm = -0.5 * (cube-mean) @ Cinv @ (cube-mean)
+        mean = np.array([lambda1,lambda2])
+        m_arr = np.array([m1,m2])
+        lnprior_unnorm = -0.5 * (m_arr-mean) @ Cinv @ (m_arr-mean)
         lnprior_norm = -np.log(norm) + lnprior_unnorm
         
         return lnprior_norm

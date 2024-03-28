@@ -16,19 +16,19 @@ class PopulationModelPrior(Prior):
     Abstract prior class to define a population model
     f(theta|\lambda) - so knows how to deal with lambdas???
     """
-
-    hyperparameter_range_dic = {}
+    standard_params=[]
+    hyperparam_range_dic = {}
     
     @abstractmethod
-    def __init__(self, hyperparameter_range_dic, **kwargs):
+    def __init__(self, hyperparam_range_dic, **kwargs):
         """
         Instantiate prior classes and define lambdas 
         """
-        self.hyperparameter_range_dic=hyperparameter_range_dic
+        self.hyperparam_range_dic=hyperparam_range_dic
         super().__init__(**kwargs)
 
-    def set_hyperparameter_range_dic(self, hyperparameter_range_dic):
-        self.hyperparameter_range_dic = hyperparameter_range_dic
+    def set_hyperparam_range_dic(self, hyperparam_range_dic):
+        self.hyperparam_range_dic = hyperparam_range_dic
         return
     
     @staticmethod
@@ -39,6 +39,25 @@ class PopulationModelPrior(Prior):
         initialization parameters.
         """
         return {}
+    
+    @utils.ClassProperty
+    def hyperparams(self):
+        """List of hyperparameter names."""
+        return list(self.hyperparam_range_dic)
+
+    
+    @utils.lru_cache()
+    def transform(self, *par_vals, **par_dic):
+        """
+        Transform sampled parameter values to standard parameter values.
+        Take `self.sampled_params + self.conditioned_on` parameters and
+        return a dictionary with `self.standard_params` parameters.
+        """
+        par_dic.update(dict(zip(self.sampled_params + self.conditioned_on,
+                                par_vals)))
+        return {par: par_dic[par] for par in self.standard_params}
+
+    inverse_transform = transform
 
 class CombinedPopulationPrior(Prior):
     """
@@ -91,7 +110,7 @@ class CombinedPopulationPrior(Prior):
         of priors in `cls.prior_classes`:
 
             * `range_dic`
-            * `hyperparameter_range_dic`
+            * `hyperparam_range_dic`
             * `standard_params`
             * `conditioned_on`
             * `periodic_params`
@@ -157,9 +176,14 @@ class CombinedPopulationPrior(Prior):
 
             lnp = 0
             for subprior in self.subpriors:
+                try:
+                    hyperparam_list = subprior.hyperparams
+                except AttributeError:
+                    hyperparam_list=[]
                 input_dic = {par: par_dic[par]
                              for par in (subprior.sampled_params
-                                         + subprior.conditioned_on)}
+                                         + subprior.conditioned_on
+                                         + hyperparam_list)}
                 lnp += subprior.lnprior(**input_dic)
             return lnp, standard_par_dic
 
@@ -196,7 +220,7 @@ class CombinedPopulationPrior(Prior):
         """
         Set these class attributes:
             * `range_dic`
-            * `hyperparameter_range_dic`
+            * `hyperparam_range_dic`
             * `standard_params`
             * `conditioned_on`
             * `periodic_params`
@@ -206,17 +230,29 @@ class CombinedPopulationPrior(Prior):
         Raise `PriorError` if subpriors are incompatible.
         """
         cls.range_dic = {}
+        print(cls)
         for prior_class in cls.prior_classes:
+            print(prior_class)
             cls.range_dic.update(prior_class.range_dic)
             
-        cls.hyperparameter_range_dic = {}
+        cls.hyperparam_range_dic = {}
         for prior_class in cls.prior_classes:
             try:
-                cls.hyperparameter_range_dic.update(prior_class.hyperparameter_range_dic)
+                cls.hyperparam_range_dic.update(prior_class.hyperparam_range_dic)
             except AttributeError:
                 continue
-
-        for params in ('standard_params', 'conditioned_on',
+                
+        #set hyperparam attributes - specific to PopulationModelPrior class
+        population_prior_classes = [prior_class for prior_class in cls.prior_classes
+                                    if issubclass(prior_class, PopulationModelPrior)]
+        cls.hyperparam_range_dic = {}
+        for prior_class in population_prior_classes:
+            cls.hyperparam_range_dic.update(prior_class.hyperparam_range_dic)
+        setattr(cls, 'hyperparams', [par for prior_class in population_prior_classes
+                                  for par in getattr(prior_class, 'hyperparams')])
+        
+        #set other attributes
+        for params in ('standard_params','conditioned_on',
                        'periodic_params', 'reflective_params',
                        'folded_reflected_params', 'folded_shifted_params',):
             setattr(cls, params, [par for prior_class in cls.prior_classes

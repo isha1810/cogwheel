@@ -110,8 +110,8 @@ class CoherentScoreHM(BaseCoherentScoreHM):
         self._switch_qmc_sequence()
 
         # Resample to match sky_dict's dt:
-        dh_mptd, times = self.sky_dict.resample_timeseries(dh_mptd, times,
-                                                           axis=2)
+        dh_mptd, times = self.sky_dict.resample_timeseries(
+            dh_mptd, times, axis=2)
 
         t_arrival_lnprob = self._incoherent_t_arrival_lnprob(dh_mptd,
                                                              hh_mppd)  # td

@@ -1,7 +1,7 @@
 # create a prior class that follows the abstract class structure of a Prior class
 # add imports
 from abc import ABC, abstractmethod
-from cogwheel.prior import Prior
+from cogwheel.prior import Prior, CombinedPrior
 
 import inspect
 import itertools
@@ -18,6 +18,7 @@ class PopulationModelPrior(Prior):
     """
     standard_params=[]
     hyperparam_range_dic = {}
+    hyperparam_prior_class = None
     
     @abstractmethod
     def __init__(self, hyperparam_range_dic, **kwargs):
@@ -25,10 +26,15 @@ class PopulationModelPrior(Prior):
         Instantiate prior classes and define lambdas 
         """
         self.hyperparam_range_dic=hyperparam_range_dic
+        self.hyperparam_prior_class=create_uniform_hyperparam_prior_class(hyperparam_range_dic)
         super().__init__(**kwargs)
 
     def set_hyperparam_range_dic(self, hyperparam_range_dic):
         self.hyperparam_range_dic = hyperparam_range_dic
+        return
+
+    def set_hyperparam_prior_class(self, hyperparam_range_dic):
+        self.hyperparam_prior_class=create_uniform_hyperparam_prior_class(hyperparam_range_dic)
         return
     
     @staticmethod
@@ -45,7 +51,6 @@ class PopulationModelPrior(Prior):
         """List of hyperparameter names."""
         return list(self.hyperparam_range_dic)
 
-    
     @utils.lru_cache()
     def transform(self, *par_vals, **par_dic):
         """
@@ -58,6 +63,19 @@ class PopulationModelPrior(Prior):
         return {par: par_dic[par] for par in self.standard_params}
 
     inverse_transform = transform
+
+    def create_uniform_hyperparam_prior_class(hyperparam_range_dic):
+        """
+        function to return a hyperparameter prior class given hyperparam_range_dic
+        """
+        class UniformHyperparamPrior(UniformPriorMixin, IdentityTransformMixin, Prior):
+            def __init__(self):
+                self.standard_params = list(hyperparam_range_dic)
+                self.range_dic = hyperparam_range_dic
+            def get_init_dict():
+                return hyperparam_range_dic
+        return UniformHyperparamPrior
+
 
 class CombinedPopulationPrior(Prior):
     """
@@ -230,27 +248,28 @@ class CombinedPopulationPrior(Prior):
         Raise `PriorError` if subpriors are incompatible.
         """
         cls.range_dic = {}
-        print(cls)
         for prior_class in cls.prior_classes:
-            print(prior_class)
             cls.range_dic.update(prior_class.range_dic)
             
-        cls.hyperparam_range_dic = {}
-        for prior_class in cls.prior_classes:
-            try:
-                cls.hyperparam_range_dic.update(prior_class.hyperparam_range_dic)
-            except AttributeError:
-                continue
+#         cls.hyperparam_range_dic = {}
+#         for prior_class in cls.prior_classes:
+#             try:
+#                 cls.hyperparam_range_dic.update(prior_class.hyperparam_range_dic)
+#             except AttributeError:
+#                 continue
                 
         #set hyperparam attributes - specific to PopulationModelPrior class
         population_prior_classes = [prior_class for prior_class in cls.prior_classes
                                     if issubclass(prior_class, PopulationModelPrior)]
         cls.hyperparam_range_dic = {}
+        hyperparam_prior_class_list = []
         for prior_class in population_prior_classes:
             cls.hyperparam_range_dic.update(prior_class.hyperparam_range_dic)
+            hyperparam_prior_class_list.append(prior_class.hyperparam_prior_class)
         setattr(cls, 'hyperparams', [par for prior_class in population_prior_classes
                                   for par in getattr(prior_class, 'hyperparams')])
-        
+        CombinedHyperparamClass = cls._create_combined_hyperparam_class(hyperparam_prior_class_list)
+        setattr(cls, 'hyperparam_prior_class', CombinedHyperparamClass)
         #set other attributes
         for params in ('standard_params','conditioned_on',
                        'periodic_params', 'reflective_params',
@@ -345,14 +364,11 @@ class CombinedPopulationPrior(Prior):
                 for par in prior_class.get_fast_sampled_params(
                     fast_standard_params)]
 
-
-
-
-
-
-
-
-
+    @staticmethod
+    def _create_combined_hyperparam_class(hyperparam_prior_class_list):
+        class CombinedHyperparamPrior(CombinedPrior):
+            prior_classes = hyperparam_prior_class_list
+        return CombinedHyperparamPrior
 
 # # define a population model class that has a function f(theta|lambda') associated with it that defines the distribution
 # # Want to interface with cogwheel and injections.py in GWIAS pipeline - easiest way to do this is to make this code work with 

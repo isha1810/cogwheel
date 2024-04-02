@@ -16,7 +16,7 @@ from cogwheel.gw_prior.combined import RegisteredPriorMixin
 from cogwheel.gw_prior.miscellaneous import (ZeroTidalDeformabilityPrior,
                                              FixedReferenceFrequencyPrior)
 from cogwheel.gw_prior.spin import UniformEffectiveSpinPrior, ZeroInplaneSpinsPrior
-from cogwheel.population_inference.population_models import PopulationModelPrior, CombinedPopulationPrior
+from cogwheel.population_inference.population_models import ParametrizedPrior, CombinedParametrizedPrior
 from scipy import interpolate
 
 
@@ -70,7 +70,7 @@ class FixedEffectiveSpinPrior(FixedPrior):
     
 # ************************ Population Stuff **************************
 
-class GaussianTestPopulationPrior(PopulationModelPrior):
+class GaussianTestPopulationPrior(ParametrizedPrior):
     '''
     Prior to test the evidence returned by sampler
     '''
@@ -84,7 +84,6 @@ class GaussianTestPopulationPrior(PopulationModelPrior):
         self.hyperparam_range_dic = {'lambda1':(lambda1_min, lambda1_max),
                                       'lambda2':(lambda2_min,lambda2_max)}
         super().__init__(self.hyperparam_range_dic, **kwargs)
-    
     
     def lnprior(self, m1, m2, lambda1, lambda2):
         '''  
@@ -141,7 +140,7 @@ class FixedTestPrior(RegisteredPriorMixin, CombinedPrior):
                      FixedReferenceFrequencyPrior,
                      FixedDistancePrior]
 
-class FixedTestPopulationPrior(RegisteredPriorMixin, CombinedPopulationPrior):
+class FixedTestPopulationPrior(RegisteredPriorMixin, CombinedParametrizedPrior):
     """
     Prior class test fix everything but 2d gaussian
     """

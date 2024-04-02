@@ -24,7 +24,8 @@ class PopulationPosterior(utils.JSONMixin):
     Class that instantiates a prior and a likelihood and provides
     methods for sampling the posterior distribution.
     """
-    def __init__(self, injection_summary, population_model, prior, likelihood):
+    def __init__(self, injection_summary, population_model,
+                 hyperparameter_prior, likelihood):
         """
         Parameters
         ----------
@@ -34,10 +35,12 @@ class PopulationPosterior(utils.JSONMixin):
         likelihood: Instance of `likelihood.PopulationModelLikelihood`
             Provides likelihood computation given a population_model object
          """
-        self.injection_summary = injection_summary
-        self.population_model = population_model
-        self.prior = prior
-        self.likelihood = likelihood
+        self.injection_summary = injection_summary #read from hdf5 file
+        self.population_model = population_model #instance of CombinedPopulationPrior 
+        self.likelihood = likelihood # instance of PopulationLikelihood
+        
+        self.prior = hyperparameter_prior # hyperparameter prior object, instance of CombinedPrior
+    
         
     def lnposterior(self, *args, **kwargs):
         """
@@ -47,5 +50,12 @@ class PopulationPosterior(utils.JSONMixin):
         lnprior, standard_par_dic = self.prior.lnprior_and_transform(
             *args, **kwargs)
         return lnprior + self.likelihood.lnlike(standard_par_dic)
-    
+
+    def create_uniform_hyperparam_prior_class(hyperparam_range_dic):
+        class UniformHyperparamPrior(UniformPriorMixin, Prior):
+            def __init__(self):
+                self.range_dic = hyperparam_range_dic
+
+        hyperparam_prior_class_list = []
+        CombinedHyperparamPrior = 
     

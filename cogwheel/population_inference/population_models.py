@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 
 from cogwheel import utils
+from cogwheel.prior import PriorError
 
 # TODO: rename ParametrizedPriorClass (DONE)
 #     : rename CombinedParametrizedPrior(DONE)
@@ -26,7 +27,7 @@ from cogwheel import utils
 #TODO: add some way of making sure the CombinedParametrizedPrior
 # can keep track of the HyperPrior associated with it
 #- keep track through hyper_params and when creating a CombinedParamterizedPrior
-# class, pass yper_prior_class!!
+# class, pass hyper_prior_class!!
 # (for now assuming only one HyperPrior class needs to be created for
 # each CombinedParametrizedPrior )
 # DONE: Checking compatibility of ParametrizedPrior and HyperPrior by:
@@ -44,11 +45,11 @@ class ParametrizedPrior(Prior):
     hyper_params = [] #list of hyperparameter names
     
     @abstractmethod
-    def __init__(self, hyperparam_range_dic, **kwargs):
+    def __init__(self, hyper_params, **kwargs):
         """
         Instantiate prior classes and define lambdas 
         """
-        self.hyperparam_range_dic=hyperparam_range_dic
+        self.hyper_params=hyper_params
         super().__init__(**kwargs)
 
     @staticmethod
@@ -125,7 +126,7 @@ class CombinedParametrizedPrior(Prior):
                             f'{", ".join(missing)}')
 
         self.subpriors = [cls(**kwargs) for cls in self.prior_classes]
-        self.hyperprior = self.hyper_prior(**kwargs) #Define hyperprior attribute
+        self.hyperprior = self.hyper_prior_class(**kwargs) #Define hyperprior attribute
 
         self.range_dic = {}
         for subprior in self.subpriors:
@@ -206,13 +207,13 @@ class CombinedParametrizedPrior(Prior):
             lnp = 0
             for subprior in self.subpriors:
                 try:
-                    hyperparam_list = subprior.hyperparams
+                    hyper_param_list = subprior.hyper_params
                 except AttributeError:
-                    hyperparam_list=[]
+                    hyper_param_list=[]
                 input_dic = {par: par_dic[par]
                              for par in (subprior.sampled_params
                                          + subprior.conditioned_on
-                                         + hyperparam_list)}
+                                         + hyper_param_list)}
                 lnp += subprior.lnprior(**input_dic)
             return lnp, standard_par_dic
 
@@ -262,7 +263,7 @@ class CombinedParametrizedPrior(Prior):
         for prior_class in cls.prior_classes:
             cls.range_dic.update(prior_class.range_dic)
 
-        #set hyperparam attributes - specific to ParametrizedPrior class
+        #set hyper_params attributes - specific to ParametrizedPrior class
         population_prior_classes = [prior_class for prior_class in cls.prior_classes
                                     if issubclass(prior_class, ParametrizedPrior)]
         cls.hyper_params = []
@@ -306,10 +307,10 @@ class CombinedParametrizedPrior(Prior):
         # Check that the HyperPrior params and the cls.hyper_params are the same
         if set(cls.hyper_params) != set(cls.hyper_prior_class.standard_params):
             raise PriorError(
-                f'HyperPrior {cls.hyper_prior_class} with params: 
-                {cls.hyper_prior_class.standard_params} not'
-                f'compatible with CombinedParametrizedPrior {cls.prior_classes} 
-                with hyper_params: {cls.hyper_params}')
+                f'HyperPrior {cls.hyper_prior_class} with params: ' 
+                f'{cls.hyper_prior_class.standard_params} not '
+                f'compatible with CombinedParametrizedPrior {cls.prior_classes} '
+                f' with hyper_params: {cls.hyper_params}')
 
     @classmethod
     def init_parameters(cls, include_optional=True):

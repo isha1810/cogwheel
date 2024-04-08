@@ -16,7 +16,7 @@ from cogwheel.gw_prior.combined import RegisteredPriorMixin
 from cogwheel.gw_prior.miscellaneous import (ZeroTidalDeformabilityPrior,
                                              FixedReferenceFrequencyPrior)
 from cogwheel.gw_prior.spin import UniformEffectiveSpinPrior, ZeroInplaneSpinsPrior
-from cogwheel.population_inference.population_models import ParametrizedPrior, CombinedParametrizedPrior
+from cogwheel.population_inference.population_models import ParametrizedPrior, CombinedParametrizedPrior, HyperPrior
 from scipy import interpolate
 
 
@@ -72,18 +72,16 @@ class FixedEffectiveSpinPrior(FixedPrior):
 
 class GaussianTestPopulationPrior(ParametrizedPrior):
     '''
-    Prior to test the evidence returned by sampler
+    Prior to test Parametrized Prior class
     '''
     standard_params = ['m1', 'm2']
     conditioned_on = []
     range_dic = {'m1': (-10,10), 'm2': (-10,10)}
-    hyperparam_range_dic = {'lambda1':(-10, 10), 'lambda2':(-10,10)}
+    hyper_params= ['lambda1', 'lambda2']
     
-    def __init__(self, *, lambda1_min=10, lambda1_max=10, 
-                 lambda2_min=-10, lambda2_max=10, **kwargs):
-        self.hyperparam_range_dic = {'lambda1':(lambda1_min, lambda1_max),
-                                      'lambda2':(lambda2_min,lambda2_max)}
-        super().__init__(self.hyperparam_range_dic, **kwargs)
+    def __init__(self, **kwargs):
+        #self.hyper_params = ['lambda1', 'lambda2']
+        super().__init__(self.hyper_params, **kwargs)
     
     def lnprior(self, m1, m2, lambda1, lambda2):
         '''  
@@ -105,9 +103,54 @@ class GaussianTestPopulationPrior(ParametrizedPrior):
         instance. Subclasses should override this method if they require
         initialization parameters.
         """
-        return hyperparams_range_dic
+        return self.range_dic.update({"hyper_params": self.hyper_params})
 
-    
+class GaussianTestHyperPrior(HyperPrior):
+    standard_params = ['lambda1', 'lambda2']
+    range_dic={'lambda1':(-10, 10), 'lambda2':(-10,10)}
+
+
+# ************************ Astrophysical Population Test **************************
+class GaussianChieff(ParametrizedPrior):
+    '''
+    Gaussian chieff model
+    '''
+    standard_params = ['chieff']
+    conditioned_on = []
+    range_dic = {'chieff': [-1, 1]}
+    hyper_params = ['chieff_mean', 'chieff_std']
+
+    def __init__(self, **kwargs):
+        super().__init__(self.hyper_params, **kwargs)
+
+    def lnprior(self, m1, m2, chieff_mean, chieff_std):
+        '''  
+        ln prior is normalized
+        '''
+        Cinv = np.array([[1/(0.05)**2, 0], [0, (1/0.05)**2]])
+        norm = np.sqrt((2*np.pi)**2 / np.linalg.det(Cinv))
+        mean = np.array([lambda1,lambda2])
+        m_arr = np.array([m1,m2])
+        lnprior_unnorm = -0.5 * (m_arr-mean) @ Cinv @ (m_arr-mean)
+        lnprior_norm = -np.log(norm) + lnprior_unnorm
+        
+        return lnprior_norm
+
+    @staticmethod
+    def get_init_dict():
+        """
+        Return dictionary with keyword arguments to reproduce the class
+        instance. Subclasses should override this method if they require
+        initialization parameters.
+        """
+        return self.range_dic.update({"hyper_params": self.hyper_params})
+
+
+class GaussianChieffHyperPrior(HyperPrior):
+    standard_params = ['chieff_mean', 'chieff_std']
+    range_dic={'chieff_mean':(-1, 1), 'chieff_std':(0.2,2)}
+
+# ************************ Combined Test Priors **************************
 class TestPrior(RegisteredPriorMixin, CombinedPrior):
     """
     Prior class test
@@ -155,5 +198,23 @@ class FixedTestPopulationPrior(RegisteredPriorMixin, CombinedParametrizedPrior):
                      ZeroTidalDeformabilityPrior,
                      FixedReferenceFrequencyPrior,
                      FixedDistancePrior]
+    hyper_prior_class = GaussianTestHyperPrior
+
+
+class FixedTestPopulationPrior(RegisteredPriorMixin, CombinedParametrizedPrior):
+    """
+    Prior class test fix everything but 2d gaussian
+    """
+    prior_classes = [IsotropicInclinationPrior,
+                     IsotropicSkyLocationPrior,
+                     UniformTimePrior,
+                     UniformPolarizationPrior,
+                     UniformPhasePrior,
+                     GaussianChieff,
+                     ZeroInplaneSpinsPrior,
+                     ZeroTidalDeformabilityPrior,
+                     FixedReferenceFrequencyPrior,
+                     FixedDistancePrior]
+    hyper_prior_class = GaussianChieffHyperPrior
 
   

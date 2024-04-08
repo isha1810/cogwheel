@@ -201,7 +201,7 @@ class FixedTestPopulationPrior(RegisteredPriorMixin, CombinedParametrizedPrior):
     hyper_prior_class = GaussianTestHyperPrior
 
 
-class FixedTestPopulationPrior(RegisteredPriorMixin, CombinedParametrizedPrior):
+class TestingGaussianChieff(RegisteredPriorMixin, CombinedParametrizedPrior):
     """
     Prior class test fix everything but 2d gaussian
     """

@@ -106,8 +106,8 @@ class GaussianTestPopulationPrior(ParametrizedPrior):
         return self.range_dic.update({"hyper_params": self.hyper_params})
 
 class GaussianTestHyperPrior(HyperPrior):
-    standard_params = ['lambda1', 'lambda2']
-    range_dic={'lambda1':(-10, 10), 'lambda2':(-10,10)}
+    standard_params = ['R','lambda1', 'lambda2']
+    range_dic={'R':(1, 100), 'lambda1':(-10, 10), 'lambda2':(-10,10)}
 
 
 # ************************ Astrophysical Population Test **************************
@@ -118,21 +118,18 @@ class GaussianChieff(ParametrizedPrior):
     standard_params = ['chieff']
     conditioned_on = []
     range_dic = {'chieff': [-1, 1]}
-    hyper_params = ['chieff_mean', 'chieff_std']
+    hyper_params = ['chieff_mean', 'chieff_sigma']
 
     def __init__(self, **kwargs):
         super().__init__(self.hyper_params, **kwargs)
 
-    def lnprior(self, m1, m2, chieff_mean, chieff_std):
+    def lnprior(self, chieff, chieff_mean, chieff_sigma):
         '''  
         ln prior is normalized
         '''
-        Cinv = np.array([[1/(0.05)**2, 0], [0, (1/0.05)**2]])
-        norm = np.sqrt((2*np.pi)**2 / np.linalg.det(Cinv))
-        mean = np.array([lambda1,lambda2])
-        m_arr = np.array([m1,m2])
-        lnprior_unnorm = -0.5 * (m_arr-mean) @ Cinv @ (m_arr-mean)
-        lnprior_norm = -np.log(norm) + lnprior_unnorm
+        lnnorm = -np.log(np.sqrt(2*np.pi)*chieff_sigma)
+        lnprior_unnorm = -1/(2*chieff_sigma**2) * (chieff - chieff_mean)**2
+        lnprior_norm = lnnorm + lnprior_unnorm
         
         return lnprior_norm
 
@@ -147,8 +144,8 @@ class GaussianChieff(ParametrizedPrior):
 
 
 class GaussianChieffHyperPrior(HyperPrior):
-    standard_params = ['chieff_mean', 'chieff_std']
-    range_dic={'chieff_mean':(-1, 1), 'chieff_std':(0.2,2)}
+    standard_params = ['R','chieff_mean', 'chieff_sigma']
+    range_dic={'R':(1, 100),'chieff_mean':(-1, 1), 'chieff_sigma':(0.2,2)}
 
 # ************************ Combined Test Priors **************************
 class TestPrior(RegisteredPriorMixin, CombinedPrior):

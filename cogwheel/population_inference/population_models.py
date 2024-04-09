@@ -6,6 +6,7 @@ import inspect
 import itertools
 import pandas as pd
 import numpy as np
+import copy
 
 from cogwheel import utils
 from cogwheel.prior import PriorError
@@ -305,7 +306,17 @@ class CombinedParametrizedPrior(Prior):
                         f' {preceding}.')
                     
         # Check that the HyperPrior params and the cls.hyper_params are the same
-        if set(cls.hyper_params) != set(cls.hyper_prior_class.standard_params):
+        # except for R which is the rate parameter added in the HyperPrior class
+        standard_hyper_params = copy.deepcopy(cls.hyper_prior_class.standard_params)
+        # First check that HyperPrior standard_params contains "R"
+        try:
+            standard_hyper_params.remove('R')
+        except ValueError:
+            raise PriorError(f'standard_params of HyperPrior class must contain rate parameter "R" '
+                            f'but only contains standard_params: {cls.hyper_prior_class.standard_params}')
+        # Next check that the standard_params except for rate param "R" are the same in the
+        # CombinedParametrizedPrior and the HyperPrior
+        if set(cls.hyper_params) != set(standard_hyper_params):
             raise PriorError(
                 f'HyperPrior {cls.hyper_prior_class} with params: ' 
                 f'{cls.hyper_prior_class.standard_params} not '

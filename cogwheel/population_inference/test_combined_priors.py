@@ -95,9 +95,8 @@ class GaussianTestPopulationPrior(ParametrizedPrior):
         lnprior_norm = -np.log(norm) + lnprior_unnorm
         
         return lnprior_norm
-        
-    @staticmethod
-    def get_init_dict():
+
+    def get_init_dict(self):
         """
         Return dictionary with keyword arguments to reproduce the class
         instance. Subclasses should override this method if they require
@@ -133,8 +132,7 @@ class GaussianChieff(ParametrizedPrior):
         
         return lnprior_norm
 
-    @staticmethod
-    def get_init_dict():
+    def get_init_dict(self):
         """
         Return dictionary with keyword arguments to reproduce the class
         instance. Subclasses should override this method if they require
@@ -146,6 +144,8 @@ class GaussianChieff(ParametrizedPrior):
 class GaussianChieffHyperPrior(HyperPrior):
     standard_params = ['R','chieff_mean', 'chieff_sigma']
     range_dic={'R':(1, 100),'chieff_mean':(-1, 1), 'chieff_sigma':(0.2,2)}
+
+    
 
 # ************************ Combined Test Priors **************************
 class TestPrior(RegisteredPriorMixin, CombinedPrior):

@@ -10,13 +10,16 @@ import matplotlib.pyplot as plt
 from cogwheel import utils
 from cogwheel import waveform
 
+
 class PopulationLikelihood(utils.JSONMixin):
     """
     Class that accesses injections summary, event posteriors and 
     population model to compute the likelihood of GW events coming
     from a particular model.
     """
-    def __init__(self, population_model, injections_summary, all_pe_samples, R0, injection_population_model):
+    def __init__(
+            self, population_model, injections_summary, all_pe_samples, R0,
+            injection_population_model):
         """
         Parameters
         ----------

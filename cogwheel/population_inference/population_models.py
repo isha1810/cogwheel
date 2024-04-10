@@ -1,42 +1,58 @@
-# create a prior class that follows the abstract class structure of a Prior class
 # add imports
 from abc import ABC, abstractmethod
-from cogwheel.prior import Prior, CombinedPrior
+from cogwheel.prior import Prior, CombinedPrior, UniformPriorMixin, IdentityTransformMixin
 
 import inspect
 import itertools
 import pandas as pd
 import numpy as np
+import copy
 
 from cogwheel import utils
+from cogwheel.prior import PriorError
 
+# TODO: rename ParametrizedPriorClass (DONE)
+#     : rename CombinedParametrizedPrior(DONE)
+#     : define HyperPrior class (DONE - technically not really needed, it can just inherit from regular prior class but keeping it)
 
-class PopulationModelPrior(Prior):
+# so when I create a paramterized 
+#     : injections h5 file setup
+#     : deal with pe samples later 
+#(add columns and add lnprior)
+
+# TODO in InjectionPrior
+# write up equations with lnprior- full lnprior
+# add lnprior of the inplane spins to injection lnprior
+# add inlplane spin prior class
+
+#TODO: add some way of making sure the CombinedParametrizedPrior
+# can keep track of the HyperPrior associated with it
+#- keep track through hyper_params and when creating a CombinedParamterizedPrior
+# class, pass hyper_prior_class!!
+# (for now assuming only one HyperPrior class needs to be created for
+# each CombinedParametrizedPrior )
+# DONE: Checking compatibility of ParametrizedPrior and HyperPrior by:
+# - passing hyper_params to ParametrizedPrior
+# - collecting unique hyper_params in CombinedParametrizedPrior
+# - checking that the hyper_params of CombinedParametrizedPrior are the 
+#sames as standard_params of associated HyperPrior
+
+class ParametrizedPrior(Prior):
     """
     Abstract prior class to define a population model
     f(theta|\lambda) - so knows how to deal with lambdas???
     """
     standard_params=[]
-    hyperparam_range_dic = {}
-    hyperparam_prior_class = None
+    hyper_params = [] #list of hyperparameter names
     
     @abstractmethod
-    def __init__(self, hyperparam_range_dic, **kwargs):
+    def __init__(self, hyper_params, **kwargs):
         """
         Instantiate prior classes and define lambdas 
         """
-        self.hyperparam_range_dic=hyperparam_range_dic
-        self.hyperparam_prior_class=create_uniform_hyperparam_prior_class(hyperparam_range_dic)
+        self.hyper_params=hyper_params
         super().__init__(**kwargs)
 
-    def set_hyperparam_range_dic(self, hyperparam_range_dic):
-        self.hyperparam_range_dic = hyperparam_range_dic
-        return
-
-    def set_hyperparam_prior_class(self, hyperparam_range_dic):
-        self.hyperparam_prior_class=create_uniform_hyperparam_prior_class(hyperparam_range_dic)
-        return
-    
     @staticmethod
     def get_init_dict():
         """
@@ -47,9 +63,9 @@ class PopulationModelPrior(Prior):
         return {}
     
     @utils.ClassProperty
-    def hyperparams(self):
+    def hyper_params(self):
         """List of hyperparameter names."""
-        return list(self.hyperparam_range_dic)
+        return list(self.hyper_params)
 
     @utils.lru_cache()
     def transform(self, *par_vals, **par_dic):
@@ -64,21 +80,10 @@ class PopulationModelPrior(Prior):
 
     inverse_transform = transform
 
-    def create_uniform_hyperparam_prior_class(hyperparam_range_dic):
-        """
-        function to return a hyperparameter prior class given hyperparam_range_dic
-        """
-        class UniformHyperparamPrior(UniformPriorMixin, IdentityTransformMixin, Prior):
-            def __init__(self):
-                self.standard_params = list(hyperparam_range_dic)
-                self.range_dic = hyperparam_range_dic
-            def get_init_dict():
-                return hyperparam_range_dic
-        return UniformHyperparamPrior
 
-
-class CombinedPopulationPrior(Prior):
+class CombinedParametrizedPrior(Prior):
     """
+    TODO: Change this description
     Make a new `Prior` subclass combining other `Prior` subclasses.
 
     Schematically, combine priors like [P(x), P(y|x)] → P(x, y).
@@ -95,7 +100,14 @@ class CombinedPopulationPrior(Prior):
     @staticmethod
     @abstractmethod
     def prior_classes():
-        """List of `Prior` subclasses with the priors to combine."""
+        """List of `Prior` and `ParametrizedPrior` subclasses 
+        with the priors to combine."""
+
+    @property
+    @staticmethod
+    @abstractmethod
+    def hyper_prior_class():
+        """A `HyperPrior` subclass."""
 
     def __init__(self, *args, **kwargs):
         """
@@ -115,6 +127,7 @@ class CombinedPopulationPrior(Prior):
                             f'{", ".join(missing)}')
 
         self.subpriors = [cls(**kwargs) for cls in self.prior_classes]
+        self.hyperprior = self.hyper_prior_class(**kwargs) #Define hyperprior attribute
 
         self.range_dic = {}
         for subprior in self.subpriors:
@@ -128,7 +141,7 @@ class CombinedPopulationPrior(Prior):
         of priors in `cls.prior_classes`:
 
             * `range_dic`
-            * `hyperparam_range_dic`
+            * `hyper_params`
             * `standard_params`
             * `conditioned_on`
             * `periodic_params`
@@ -141,7 +154,7 @@ class CombinedPopulationPrior(Prior):
             * `lnprior`
 
         which are used to override the corresponding attributes and
-        methods of the new `CombinedPopulationPrior` subclass.
+        methods of the new `CombinedParametrizedPrior` subclass.
         """
         super().__init_subclass__()
 
@@ -195,13 +208,13 @@ class CombinedPopulationPrior(Prior):
             lnp = 0
             for subprior in self.subpriors:
                 try:
-                    hyperparam_list = subprior.hyperparams
+                    hyper_param_list = subprior.hyper_params
                 except AttributeError:
-                    hyperparam_list=[]
+                    hyper_param_list=[]
                 input_dic = {par: par_dic[par]
                              for par in (subprior.sampled_params
                                          + subprior.conditioned_on
-                                         + hyperparam_list)}
+                                         + hyper_param_list)}
                 lnp += subprior.lnprior(**input_dic)
             return lnp, standard_par_dic
 
@@ -238,7 +251,7 @@ class CombinedPopulationPrior(Prior):
         """
         Set these class attributes:
             * `range_dic`
-            * `hyperparam_range_dic`
+            * `hyper_params`
             * `standard_params`
             * `conditioned_on`
             * `periodic_params`
@@ -250,26 +263,17 @@ class CombinedPopulationPrior(Prior):
         cls.range_dic = {}
         for prior_class in cls.prior_classes:
             cls.range_dic.update(prior_class.range_dic)
-            
-#         cls.hyperparam_range_dic = {}
-#         for prior_class in cls.prior_classes:
-#             try:
-#                 cls.hyperparam_range_dic.update(prior_class.hyperparam_range_dic)
-#             except AttributeError:
-#                 continue
-                
-        #set hyperparam attributes - specific to PopulationModelPrior class
+
+        #set hyper_params attributes - specific to ParametrizedPrior class
         population_prior_classes = [prior_class for prior_class in cls.prior_classes
-                                    if issubclass(prior_class, PopulationModelPrior)]
-        cls.hyperparam_range_dic = {}
-        hyperparam_prior_class_list = []
+                                    if issubclass(prior_class, ParametrizedPrior)]
+        cls.hyper_params = []
         for prior_class in population_prior_classes:
-            cls.hyperparam_range_dic.update(prior_class.hyperparam_range_dic)
-            hyperparam_prior_class_list.append(prior_class.hyperparam_prior_class)
-        setattr(cls, 'hyperparams', [par for prior_class in population_prior_classes
-                                  for par in getattr(prior_class, 'hyperparams')])
-        CombinedHyperparamClass = cls._create_combined_hyperparam_class(hyperparam_prior_class_list)
-        setattr(cls, 'hyperparam_prior_class', CombinedHyperparamClass)
+            cls.hyper_params.append(prior_class.hyper_params)
+        unique_hyper_params= list(set([par for prior_class in population_prior_classes
+                                  for par in getattr(prior_class, 'hyper_params')]))
+        setattr(cls, 'hyper_params', unique_hyper_params)
+        
         #set other attributes
         for params in ('standard_params','conditioned_on',
                        'periodic_params', 'reflective_params',
@@ -300,6 +304,24 @@ class CombinedPopulationPrior(Prior):
                         f'{following} defines {conditioned_par}, which '
                         f'{preceding} requires. {following} should come before'
                         f' {preceding}.')
+                    
+        # Check that the HyperPrior params and the cls.hyper_params are the same
+        # except for R which is the rate parameter added in the HyperPrior class
+        standard_hyper_params = copy.deepcopy(cls.hyper_prior_class.standard_params)
+        # First check that HyperPrior standard_params contains "R"
+        try:
+            standard_hyper_params.remove('R')
+        except ValueError:
+            raise PriorError(f'standard_params of HyperPrior class must contain rate parameter "R" '
+                            f'but only contains standard_params: {cls.hyper_prior_class.standard_params}')
+        # Next check that the standard_params except for rate param "R" are the same in the
+        # CombinedParametrizedPrior and the HyperPrior
+        if set(cls.hyper_params) != set(standard_hyper_params):
+            raise PriorError(
+                f'HyperPrior {cls.hyper_prior_class} with params: ' 
+                f'{cls.hyper_prior_class.standard_params} not '
+                f'compatible with CombinedParametrizedPrior {cls.prior_classes} '
+                f' with hyper_params: {cls.hyper_params}')
 
     @classmethod
     def init_parameters(cls, include_optional=True):
@@ -364,81 +386,14 @@ class CombinedPopulationPrior(Prior):
                 for par in prior_class.get_fast_sampled_params(
                     fast_standard_params)]
 
-    @staticmethod
-    def _create_combined_hyperparam_class(hyperparam_prior_class_list):
-        class CombinedHyperparamPrior(CombinedPrior):
-            prior_classes = hyperparam_prior_class_list
-        return CombinedHyperparamPrior
+class HyperPrior(UniformPriorMixin, IdentityTransformMixin, Prior):
+    """
+    Class to define the hyperparameters of the
+    prior class 
+    """
+    standard_params = []
+    range_dic={}
 
-# # define a population model class that has a function f(theta|lambda') associated with it that defines the distribution
-# # Want to interface with cogwheel and injections.py in GWIAS pipeline - easiest way to do this is to make this code work with 
-# # cogwheel and get one easily loadable thing from the output of injection_loader_O3.py - think about what this would look like. 
-
-# from abc import ABC, abstractmethod
-# import numpy as np
-# import math
-
-# # class PopulationModel(ABC):
-# #     '''
-# #     Abstract base class to define the structure of any population model class I would like to define in the future
-# #     Using abstract class instead of superclass because each population model has its own lambdas and f, etc.
-# #     '''
-# #     def __init__(self, injections_summary):
-# #         # get injections summary a dictionary with - data frame + pastro function (think about how this will be stored)
-# #         self.injections_df = injections_summary['injections_df']
-# #         self.pastro_func = injections_summary['pastro_func']
-# #         self.Ninj = len(injections_summary)
-# #         self.VT = None
-# #         self.hyperparams = []
-# #         self.hyperparam_ranges = {}  
-# #     def logf():
-# #     def VT():
-
-# # give this a combined prior and then 
-
-# class PopulationModel():
-    
-
-            
-# class GaussianChieff:
-#     '''
-#     '''
-#     def __init__(self, injections_summary, Ninj):
-#         self.injections_summary = injections_summary
-#         self.Ninj = Ninj
-#         self.VT_dict = None
-#         self.hyperparams = []
-#         self.hyperparam_ranges = {}
-    
-#     def logf(self, mean, sigma):
-#         # compute the lnprior from the prior and combined prior 
-#         chieff = self.injections_summary['chieff']
-#         logf_gaussian = (0.5*np.log(2) - np.log(np.pi) - 2*np.log(sigma) -
-#                             np.log(math.erf((mean + 1)/np.sqrt(2*sigma**2)) -
-#                             math.erf((mean - 1)/np.sqrt(2*sigma**2))) -
-#                             ((chieff - mean)**2 / (2*sigma**2))
-#                          )
-#         logf_inj = self.injections_summary['ln_pdet_fid']
-#         logf_tot = logf_inj + np.log(2) + logf_gaussian
-#         return logf_tot
-
-#     def VT(self, n_samples):
-#         mean_chieff_range = self.hyperparam_ranges['mean_chieff']
-#         sigma_chieff_range = self.hyperparam_ranges['sigma_chieff']
-#         mean_chieff_samples = np.random.uniform(mean_chieff_range[0], mean_chieff_range[1], n_samples)
-#         sigma_chieff_samples = np.random.uniform(sigma_chieff_range[0], sigma_chieff_range[1], n_samples)
-#         logPinj = self.injections_summary['ln_pdet_fid']
-        
-#         VT = np.zeros(n_samples)
-#         for samp in range(n_samples):
-#             logf_gaussian_chieff = self.logf(self, mean_chieff_samples[samp], sigma_chieff_samples[samp])
-#             VT[samp] = (1/self.Ninj) * np.sum(np.exp(logf_gaussian_chieff - logPinj))
-#         VT_dict = {self.hyperparams[0]:mean_chieff_samples, self.hyperparams[1]:sigma_chieff_samples,
-#                   'VT': VT}
-#         self.VT_dict = VT_dict
-        
-#         return VT_dict
-    
-#     def w_i():
-#         # compute the weights using PE samples and the f defined in 
-    
+    @utils.ClassProperty
+    def standard_params(self):
+        return list(self.standard_par_dic)

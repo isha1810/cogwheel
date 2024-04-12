@@ -32,8 +32,7 @@ class PopulationLikelihood(utils.JSONMixin):
         self.injection_population_model = injection_population_model
         self.all_pe_samples = all_pe_samples
         self.R0 = R0
-    
-    
+
     def lnlike(self, hyperparams_dic):
         """
         Returns the log likelihood of population model (Eq. 16)
@@ -42,8 +41,7 @@ class PopulationLikelihood(utils.JSONMixin):
                   np.sum(np.log((hyperparams_dic['R']/self.R0)*self.w_i(hyperparams_dic)*self.pastro_func) 
                         + (1-self.pastro_func)))
         return lnlike
-        
-    
+
     def w_i(self, hyperparams_dic):
         """
         Returns Eq. 17
@@ -75,8 +73,7 @@ class PopulationLikelihood(utils.JSONMixin):
                      np.sum(np.exp(vectorized_injection_population_lnprior(**inj_params_dict) - 
                                   pe_samples['lnl'])))
         return w_arr
-        
-        
+
     def VT(self, hyperparams_dic):
         """
         Returns population averaged sensitive volume time (Eq. 18)

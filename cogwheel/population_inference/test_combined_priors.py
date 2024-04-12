@@ -43,6 +43,10 @@ class GaussianTestPrior(IdentityTransformMixin, Prior):
 class FixedDistancePrior(FixedPrior):
     """Set distance."""
     standard_par_dic = {'d_luminosity': 1.0}
+
+    def get_init_dict(self):
+        """Dictionary with arguments to reproduce class instance."""
+        return self.standard_par_dic
     
 class FixedInclinationPrior(FixedPrior):
     """Set inclination."""
@@ -138,7 +142,9 @@ class GaussianChieff(ParametrizedPrior):
         instance. Subclasses should override this method if they require
         initialization parameters.
         """
-        return self.range_dic.update({"hyper_params": self.hyper_params})
+        init_dict = self.range_dic
+        #.update({"hyper_params": self.hyper_params})
+        return init_dict
 
 
 class GaussianChieffHyperPrior(HyperPrior):

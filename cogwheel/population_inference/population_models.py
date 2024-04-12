@@ -192,6 +192,7 @@ class CombinedParametrizedPrior(Prior):
                 par_dic.update(subprior.inverse_transform(**input_dic))
             return {par: par_dic[par] for par in self.sampled_params}
 
+        # lnprior_and_transform_samples
         def lnprior_and_transform(self, *par_vals, **par_dic):
             """
             Take sampled and conditioned-on parameters, and return a

@@ -422,15 +422,43 @@ class Prior(ABC, utils.JSONMixin):
         standard = pd.DataFrame(list(np.vectorize(self.transform)(**direct)))
         utils.update_dataframe(samples, standard)
 
-    def inverse_transform_samples(self, samples: pd.DataFrame):
+    def inverse_transform_samples(self, samples: pd.DataFrame, force_update=True):
         """
         Add columns in-place for `self.sampled_params` to `samples`.
         `samples` must include columns for `self.standard_params`.
+        force_update: bool, whether to force an update if the inverse transformed
+                      sampled samples already exist
         """
+        if (not force_update and
+                (set(self.sampled_params) <= set(samples.columns))):
+            return
         inverse = samples[self.standard_params + self.conditioned_on]
         sampled = pd.DataFrame(list(
             np.vectorize(self.inverse_transform)(**inverse)))
         utils.update_dataframe(samples, sampled)
+
+    def lnprior_and_transform_samples(self, samples: pd.DataFrame, force_update=True):
+        """
+        Add columns in-place for `self.standard_params` to `samples`.
+        `samples` must include columns for `self.sampled_params` and
+        `self.conditioned_on`. Also returns the lnprior
+
+        Parameters
+        ----------
+        samples: Dataframe with sampled params
+        force_update: bool, whether to force an update if the transformed
+                      standard samples already exist
+        """
+        if force_update or \
+                not (set(self.standard_params) <= set(samples.columns)):
+            direct = samples[self.sampled_params + self.conditioned_on]
+            standard = pd.DataFrame(
+                list(np.vectorize(self.transform)(**direct)))
+            utils.update_dataframe(samples, standard)
+        else:
+            direct = samples[self.sampled_params + self.conditioned_on]
+
+        return np.vectorize(self.lnprior)(**direct)
 
 
 class CombinedPrior(Prior):
@@ -563,6 +591,29 @@ class CombinedPrior(Prior):
             """
             return self.lnprior_and_transform(*par_vals, **par_dic)[0]
 
+        def lnprior_and_transform_samples(self, samples: pd.DataFrame, force_update=True):
+            """
+            Natural logarithm of the prior probability density.
+            Take `self.sampled_params + self.conditioned_on` parameters
+            and return a float.
+            """
+            if force_update or \
+                    not (set(cls.standard_params) <= set(samples.columns)):
+                direct = samples[direct_params]
+                standard = pd.DataFrame(
+                    list(np.vectorize(self.transform)(**direct)))
+                utils.update_dataframe(samples, standard)
+                direct.join(standard)
+            else:
+                direct = samples[direct_params + cls.standard_params]
+
+            lnp = 0
+            for subprior in self.subpriors:
+                input_df = direct[
+                    subprior.sampled_params + subprior.conditioned_on]
+                lnp += np.vectorize(subprior.lnprior)(**input_df)
+
+            return lnp
 
         # Witchcraft to fix the functions' signatures:
         self_parameter = inspect.Parameter('self',
@@ -582,6 +633,7 @@ class CombinedPrior(Prior):
         cls.inverse_transform = inverse_transform
         cls.lnprior_and_transform = lnprior_and_transform
         cls.lnprior = lnprior
+        cls.lnprior_and_transform_samples = lnprior_and_transform_samples
 
     @classmethod
     def _set_params(cls):

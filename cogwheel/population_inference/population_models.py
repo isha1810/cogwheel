@@ -386,6 +386,7 @@ class CombinedParametrizedPrior(Prior):
                 for par in prior_class.get_fast_sampled_params(
                     fast_standard_params)]
 
+
 class HyperPrior(UniformPriorMixin, IdentityTransformMixin, Prior):
     """
     Class to define the hyperparameters of the

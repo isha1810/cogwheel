@@ -603,9 +603,9 @@ class CombinedPrior(Prior):
                 standard = pd.DataFrame(
                     list(np.vectorize(self.transform)(**direct)))
                 utils.update_dataframe(samples, standard)
-                direct.join(standard)
+                utils.update_dataframe(direct, standard)
             else:
-                direct = samples[direct_params + cls.standard_params]
+                direct = samples[list(set(direct_params + cls.standard_params))]
 
             lnp = 0
             for subprior in self.subpriors:

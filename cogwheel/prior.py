@@ -594,8 +594,8 @@ class CombinedPrior(Prior):
         def lnprior_and_transform_samples(self, samples: pd.DataFrame, force_update=True):
             """
             Natural logarithm of the prior probability density.
-            Take `self.sampled_params + self.conditioned_on` parameters
-            and return a float.
+            Take a dataframe with `self.sampled_params + self.conditioned_on` parameters
+            and return a numpy array with lnpriors.
             """
             if force_update or \
                     not (set(cls.standard_params) <= set(samples.columns)):
@@ -605,7 +605,7 @@ class CombinedPrior(Prior):
                 utils.update_dataframe(samples, standard)
                 direct.join(standard)
             else:
-                direct = samples[direct_params + cls.standard_params]
+                direct = samples[list(set(direct_params + cls.standard_params))]
 
             lnp = 0
             for subprior in self.subpriors:

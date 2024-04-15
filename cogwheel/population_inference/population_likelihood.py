@@ -46,32 +46,15 @@ class PopulationLikelihood(utils.JSONMixin):
         """
         Returns Eq. 17
         """
-        pe_param_keys = np.array(self.parametrized_population.sampled_params) # lnprior function takes sampled params as input
-        inj_param_keys = np.array(self.injection_population_model.sampled_params)
-        
-        #params_df = self.recovered_injections[param_keys]
-        #all_params_dict = {col: params_df[col].to_numpy() for col in params_df.columns}
-        #all_params_dict.update(hyperparams_dic)
-        
-        #vectorized_population_lnprior = np.vectorize(self.parametrized_population.lnprior)
-        #vectorized_injection_population_lnprior = np.vectorize(self.injection_population_model.lnprior)
-
-        vectorized_population_lnprior = self.parametrized_population.lnprior
-        vectorized_injection_population_lnprior = self.injection_population_model.lnprior
-        
         w_arr = np.zeros(len(self.all_pe_samples))
         for i, pe_samples in enumerate(self.all_pe_samples):
-            pe_model_params_df = pe_samples[pe_param_keys]
-            model_params_dict = {col: pe_model_params_df[col].to_numpy() for col in pe_model_params_df.columns}
-            model_params_dict.update(hyperparams_dic)
-            
-            pe_inj_params_df = pe_samples[inj_param_keys]
-            inj_params_dict = {col: pe_inj_params_df[col].to_numpy() for col in pe_inj_params_df.columns}
-            
-            w_arr[i] = (np.sum(np.exp(vectorized_population_lnprior(**model_params_dict) - 
-                                  pe_samples['lnl']))/
-                     np.sum(np.exp(vectorized_injection_population_lnprior(**inj_params_dict) - 
-                                  pe_samples['lnl'])))
+            pe_samples_trunc = pe_samples[0:1000]
+            w_arr[i] = (np.sum(np.exp(self.parametrized_population.lnprior_and_transform_samples(
+                                        pe_samples_trunc, **hyperparams_dic, force_update=False) - 
+                                  pe_samples_trunc['lnl']))/
+                     np.sum(np.exp(self.injection_population_model.lnprior_and_transform_samples(
+                                        pe_samples_trunc, force_update=False) - 
+                                  pe_samples_trunc['lnl'])))
         return w_arr
 
     def VT(self, hyperparams_dic):
@@ -79,17 +62,8 @@ class PopulationLikelihood(utils.JSONMixin):
         Returns population averaged sensitive volume time (Eq. 18)
         """
         norm_fac = 1 #CHANGE THIS TO CORRECT VALUE
-        param_keys = np.array(self.parametrized_population.sampled_params)
-        params_df = self.recovered_injections[param_keys]
-        all_params_dict = {col: params_df[col].to_numpy() for col in params_df.columns}
-        all_params_dict.update(hyperparams_dic)
-
-        #vectorized_population_lnprior = np.vectorize(self.parametrized_population.lnprior)
-        #vectorized_injection_population_lnprior = np.vectorize(self.injection_population_model.lnprior)
-
-        vectorized_population_lnprior = self.parametrized_population.lnprior
-
-        VT = (1/self.Ninj) * np.sum(np.exp(vectorized_population_lnprior(**all_params_dict) - 
+        VT = (1/self.Ninj) * np.sum(np.exp(self.parametrized_population.lnprior_and_transform_samples(
+                                            self.recovered_injections, **hyperparams_dic, force_update=False) - 
                                     self.recovered_injections['ln_pdet_fid']*norm_fac))
         return VT
 
@@ -100,5 +74,3 @@ class PopulationLikelihood(utils.JSONMixin):
                      'R0':self.R0,
                      'injection_population_model':self.injection_population_model}
         return init_dict
-
-

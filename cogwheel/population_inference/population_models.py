@@ -208,10 +208,7 @@ class CombinedParametrizedPrior(Prior):
 
             lnp = 0
             for subprior in self.subpriors:
-                try:
-                    hyper_param_list = subprior.hyper_params
-                except AttributeError:
-                    hyper_param_list=[]
+                hyper_param_list = subprior.__dict__.get('hyper_params', [])
                 input_dic = {par: par_dic[par]
                              for par in (subprior.sampled_params
                                          + subprior.conditioned_on
@@ -227,6 +224,34 @@ class CombinedParametrizedPrior(Prior):
             """
             return self.lnprior_and_transform(*par_vals, **par_dic)[0]
 
+        def lnprior_and_transform_samples(
+            self, samples: pd.DataFrame, force_update=True, **hyperparams_dic):
+            """
+            Natural logarithm of the prior probability density.
+            Take a dataframe with `self.sampled_params + self.conditioned_on` parameters
+            and return a numpy array with lnpriors.
+            """
+            if force_update or \
+                    not (set(cls.standard_params) <= set(samples.columns)):
+                direct = samples[direct_params]
+                standard = pd.DataFrame(
+                    list(np.vectorize(self.transform)(**direct)))
+                utils.update_dataframe(samples, standard)
+                utils.update_dataframe(direct, standard)
+            else:
+                direct = samples[list(set(direct_params + cls.standard_params))]
+                
+            for key, val in hyperparams_dic.items():
+                direct[key] = val
+
+            lnp = 0
+            for subprior in self.subpriors:
+                hyper_param_list = subprior.__dict__.get('hyper_params', [])
+                input_df = direct[
+                    subprior.sampled_params + subprior.conditioned_on + hyper_param_list]
+                lnp += np.vectorize(subprior.lnprior)(**input_df)
+
+            return lnp
 
         # Witchcraft to fix the functions' signatures:
         self_parameter = inspect.Parameter('self',
@@ -246,6 +271,7 @@ class CombinedParametrizedPrior(Prior):
         cls.inverse_transform = inverse_transform
         cls.lnprior_and_transform = lnprior_and_transform
         cls.lnprior = lnprior
+        cls.lnprior_and_transform_samples = lnprior_and_transform_samples
 
     @classmethod
     def _set_params(cls):

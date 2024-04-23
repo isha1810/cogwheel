@@ -30,7 +30,6 @@ class InjectionMassPrior(ReferenceDetectorMixin, Prior):
                  #'lnq': NotImplemented,
                  'cum_q': (0,1),
                  'd_hat': NotImplemented}
-                  
     conditioned_on = ['ra', 'dec', 'psi', 'iota']
     
     def __init__(self, *, tgps, ref_det_name, m1_source_range, alpha=2.0, m_min=1, 
@@ -119,7 +118,7 @@ class InjectionMassPrior(ReferenceDetectorMixin, Prior):
                 'd_hat': d_luminosity / self._conversion_factor(ra, dec, psi,
                                                                 iota, m1, m2)}
     
-    def lnprior(self, m1_source, cum_q, d_hat, ra, dec, psi, iota):
+    def lnprior(self, m1_source, cum_q, d_hat, ra, dec, psi, iota, d_luminosity=None):
         """
         Prior distribution as defined in Eq(24) of https://arxiv.org/pdf/2008.07014.pdf
         f (m1_source, q, chi_eff, D_L) = m1_source^alpha * D_L^2
@@ -127,8 +126,9 @@ class InjectionMassPrior(ReferenceDetectorMixin, Prior):
         Uniform prior in mass ratio q and spin chi_eff.
         Power law in the luminosity distance.
         """
-        par_dict = self.transform(m1_source, cum_q, d_hat, ra, dec, psi, iota)
-        d_luminosity = par_dict['d_luminosity']
+        if d_luminosity is None:
+            par_dict = self.transform(m1_source, cum_q, d_hat, ra, dec, psi, iota)
+            d_luminosity = par_dict['d_luminosity']
         
         # individual prior probability density : power law in source frame mass
         lnprior_m1_source = -self.alpha * np.log(m1_source)

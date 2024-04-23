@@ -249,7 +249,7 @@ class CombinedParametrizedPrior(Prior):
                 hyper_param_list = subprior.__dict__.get('hyper_params', [])
                 input_df = direct[
                     subprior.sampled_params + subprior.conditioned_on + hyper_param_list]
-                lnp += np.vectorize(subprior.lnprior)(**input_df)
+                lnp += subprior.lnprior_vectorized(**input_df)
 
             return lnp
 

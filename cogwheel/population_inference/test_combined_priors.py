@@ -136,6 +136,19 @@ class GaussianChieff(ParametrizedPrior):
         
         return lnprior_norm
 
+    def lnprior_vectorized(self, *par_vals, **par_dic):
+        """
+        Vectorized version of lnprior.
+        """
+        chieff_mean = par_dic['chieff_mean']
+        chieff_sigma = par_dic['chieff_sigma']
+        if len(par_vals) > 0:
+            chieff = par_vals[0]
+        else:
+            chieff = par_dic['chieff']
+
+        return self.lnprior(chieff, chieff_mean, chieff_sigma)
+
     def get_init_dict(self):
         """
         Return dictionary with keyword arguments to reproduce the class

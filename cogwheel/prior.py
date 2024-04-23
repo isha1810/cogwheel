@@ -164,6 +164,15 @@ class Prior(ABC, utils.JSONMixin):
         """
 
     @abstractmethod
+    def lnprior_vectorized(self, *par_vals, **par_dic):
+        """
+        Natural logarithm of the prior probability density.
+        Take `self.sampled_params + self.conditioned_on` parameters and
+        return a float.
+        """
+        return np.vectorize(self.lnprior)(*par_vals, **par_dic)
+
+    @abstractmethod
     def transform(self, *par_vals, **par_dic):
         """
         Transform sampled parameter values to standard parameter values.
@@ -458,7 +467,7 @@ class Prior(ABC, utils.JSONMixin):
         else:
             direct = samples[self.sampled_params + self.conditioned_on]
 
-        return np.vectorize(self.lnprior)(**direct)
+        return self.lnprior_vectorized(**direct)
 
 
 class CombinedPrior(Prior):
@@ -611,7 +620,7 @@ class CombinedPrior(Prior):
             for subprior in self.subpriors:
                 input_df = direct[
                     subprior.sampled_params + subprior.conditioned_on]
-                lnp += np.vectorize(subprior.lnprior)(**input_df)
+                lnp += subprior.lnprior_vectorized(**input_df)
 
             return lnp
 
@@ -781,6 +790,18 @@ class FixedPrior(Prior):
         """Natural logarithm of the prior probability density."""
         return 0
 
+    def lnprior_vectorized(self, *par_vals, **par_dic):
+        """Natural logarithm of the prior probability density."""
+        if len(par_vals) > 0:
+            nsamp = len(par_vals[0])
+        elif bool(par_dic):
+            nsamp = len(list(par_dic.values())[0])
+        else:
+            raise RuntimeError("No parameters provided")
+
+        return np.zeros(nsamp)
+
+
     def transform(self):
         """Return a fixed dictionary of standard parameters."""
         return self.standard_par_dic
@@ -816,6 +837,21 @@ class UniformPriorMixin:
         return a float.
         """
         return - np.log(np.prod(self.cubesize))
+
+    def lnprior_vectorized(self, *par_vals, **par_dic):
+        """
+        Natural logarithm of the prior probability density.
+        Take `self.sampled_params + self.conditioned_on` parameters and
+        return a float.
+        """
+        if len(par_vals) > 0:
+            nsamp = len(par_vals[0])
+        elif bool(par_dic):
+            nsamp = len(list(par_dic.values())[0])
+        else:
+            raise RuntimeError("No parameters provided")
+
+        return - np.log(np.prod(self.cubesize)) * np.ones(nsamp)
 
     def __init_subclass__(cls):
         """

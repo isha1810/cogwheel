@@ -138,7 +138,13 @@ class InjectionMassPrior(ReferenceDetectorMixin, Prior):
         # joint probability density
         lnprior_tot = lnprior_m1_source + lnprior_d_hat
         
-        return lnprior_tot 
+        return lnprior_tot
+
+    def lnprior_vectorized(self, *par_vals, **par_dic):
+        """
+        Vectorized version of the prior
+        """
+        return self.lnprior(*par_vals, **par_dic)
     
     def get_init_dict(self):
         """

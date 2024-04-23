@@ -601,7 +601,7 @@ class CombinedPrior(Prior):
             return self.lnprior_and_transform(*par_vals, **par_dic)[0]
 
         def lnprior_vectorized(self, *par_vals, **par_dic):
-            raise RuntimeError("use lnprior_and_transform_samples instead")
+            raise RuntimeError("Use lnprior_and_transform_samples instead")
 
         def lnprior_and_transform_samples(self, samples: pd.DataFrame, force_update=True):
             """

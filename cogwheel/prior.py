@@ -600,6 +600,9 @@ class CombinedPrior(Prior):
             """
             return self.lnprior_and_transform(*par_vals, **par_dic)[0]
 
+        def lnprior_vectorized(self, *par_vals, **par_dic):
+            raise RuntimeError("use lnprior_and_transform_samples instead")
+
         def lnprior_and_transform_samples(self, samples: pd.DataFrame, force_update=True):
             """
             Natural logarithm of the prior probability density.
@@ -642,6 +645,7 @@ class CombinedPrior(Prior):
         cls.inverse_transform = inverse_transform
         cls.lnprior_and_transform = lnprior_and_transform
         cls.lnprior = lnprior
+        cls.lnprior_vectorized = lnprior_vectorized
         cls.lnprior_and_transform_samples = lnprior_and_transform_samples
 
     @classmethod

@@ -51,10 +51,9 @@ class PopulationLikelihood(utils.JSONMixin):
             pe_samples_trunc = pe_samples[0:1000]
             w_arr[i] = (np.sum(np.exp(self.parametrized_population.lnprior_and_transform_samples(
                                         pe_samples_trunc, **hyperparams_dic, force_update=False) - 
-                                  pe_samples_trunc['lnl']))/
-                     np.sum(np.exp(self.injection_population_model.lnprior_and_transform_samples(
-                                        pe_samples_trunc, force_update=False) - 
-                                  pe_samples_trunc['lnl'])))
+                                  pe_samples_trunc['lnprior']))/
+                     np.sum(np.exp(pe_samples_trunc['lnprior_fiducial'] - 
+                                  pe_samples_trunc['lnprior'])))
         return w_arr
 
     def VT(self, hyperparams_dic):

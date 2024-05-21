@@ -12,3 +12,6 @@ cogwheel/factorized_qas/data/extrinsic_samples_*.npz
 *.pyc
 __pycache__
 .ipynb_checkpoints
+
+cogwheel/population_inference/PE_samples_all_jacobian
+cogwheel/population_inference/PE_samples10

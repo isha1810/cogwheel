@@ -63,6 +63,18 @@ class InjectionMassPrior(ReferenceDetectorMixin, Prior):
         redshift = cosmology.z_of_d_luminosity(d_luminosity)
         return d_luminosity / (1+redshift)**(5/6)
 
+    def geometric_factor_refdet(self, ra, dec, psi, iota):
+        """
+        Return the complex geometric factor
+            R = (1+cos^2(iota)) Fp / 2 - i cos(iota) Fc
+        that relates a waveform with generic orientation to an overhead
+        face-on one for quadrupolar waveforms.
+        Note that the amplitude |R| is between 0 and 1.
+        """
+        fplus, fcross = self.fplus_fcross_refdet(ra, dec, psi)
+        cosiota = np.cos(iota)
+        return (1 + cosiota**2) / 2 * fplus - 1j * cosiota * fcross
+
     def _response_factor(self, ra, dec, psi, iota):
         """
         Return detector response function
@@ -94,7 +106,7 @@ class InjectionMassPrior(ReferenceDetectorMixin, Prior):
         func_val = d_hat * mchirp_source**(5/6) * R_k
         # use inverse spline here
         if func_val>self.fmax:
-            print(mchirp_source, R_k, m1_source, lnq, d_hat, ra, dec, psi, iota)
+            print(mchirp_source, R_k, m1_source, cum_q, d_hat, ra, dec, psi, iota)
         d_luminosity = self._d_luminosity_of_f(func_val)[()]
         redshift = cosmology.z_of_d_luminosity(d_luminosity)
         m1 = m1_source * (1+redshift)
@@ -140,12 +152,6 @@ class InjectionMassPrior(ReferenceDetectorMixin, Prior):
         
         return lnprior_tot
 
-    def lnprior_vectorized(self, *par_vals, **par_dic):
-        """
-        Vectorized version of the prior
-        """
-        return self.lnprior(*par_vals, **par_dic)
-    
     def get_init_dict(self):
         """
         Return dictionary with keyword arguments to reproduce the class

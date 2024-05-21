@@ -227,23 +227,38 @@ class CombinedParametrizedPrior(Prior):
 
         def lnprior_vectorized(self, *par_vals, **par_dic):
             raise RuntimeError("Use lnprior_and_transform_samples instead")
-        
-        def lnprior_and_transform_samples(
-            self, samples: pd.DataFrame, force_update=True, **hyperparams_dic):
+
+        # This works when using dictionary for samples
+        def lnprior_and_transform_samples(self, samples, **hyperparams_dic):
             """
             Natural logarithm of the prior probability density.
             Take a dataframe with `self.sampled_params + self.conditioned_on` parameters
             and return a numpy array with lnpriors.
+            samples needs to be a dictionary
             """
-            if force_update or \
-                    not (set(cls.standard_params) <= set(samples.columns)):
-                direct = samples[direct_params]
-                standard = pd.DataFrame(
-                    list(np.vectorize(self.transform)(**direct)))
-                utils.update_dataframe(samples, standard)
-                utils.update_dataframe(direct, standard)
+            try:
+                samples_cols = list(samples.keys())
+            except AttributeError:
+                print("The samples need to be a dictionary but instead ",type(samples),
+                     "passed.")
+                raise
+                # samples_cols = list(samples.keys())
+            # if force_update or \
+            #         not (set(cls.standard_params) <= set(samples_cols)):
+            #     direct = samples[direct_params]
+            #     standard = pd.DataFrame(
+            #         list(np.vectorize(self.transform)(**direct)))
+            #     utils.update_dataframe(samples, standard)
+            #     utils.update_dataframe(direct, standard)
+            
+            if not (set(cls.standard_params) <= set(samples_cols)):
+                missing_params = (cls.standard_params - 
+                                  set(cls.standard_params).intersection(set(samples_cols)))
+                raise PriorError("The samples do not contain the following keys", missing_params,
+                                "that are required to compute the lnprior")
             else:
-                direct = samples[list(set(direct_params + cls.standard_params))]
+                keys_to_keep = list(set(direct_params + cls.standard_params))
+                direct = {key:samples[key] for key in keys_to_keep}
                 
             for key, val in hyperparams_dic.items():
                 direct[key] = val
@@ -254,8 +269,9 @@ class CombinedParametrizedPrior(Prior):
                     input_df = direct
                 else:
                     hyper_param_list = subprior.__dict__.get('hyper_params', [])
-                    input_df = direct[
-                        subprior.sampled_params + subprior.conditioned_on + hyper_param_list]
+                    keys_subprior = subprior.sampled_params + subprior.conditioned_on + hyper_param_list
+                    input_df = {key:direct[key] for key in keys_subprior}
+                    
                 lnp += subprior.lnprior_vectorized(**input_df)
 
             return lnp
@@ -435,39 +451,44 @@ class HyperPrior(UniformPriorMixin, IdentityTransformMixin, Prior):
         return list(self.standard_par_dic)
 
 
-class OptimizeVectorizationMixin:
-    """
-    Class to ensure vectorizability of lnprior function that is required
-    for the CombinedParametrizedPrior class
-    """
-    @abstractmethod
-    def lnprior_vectorized(self, *par_vals, **par_dic):
-        """
-        Natural logarithm of the prior probability density.
-        Take `self.sampled_params + self.conditioned_on` parameters and
-        return a float.
-        """
+# class OptimizeVectorizeMixin:
+#     """
+#     Adding this to ensure that:
+#     1) lnprior_vectorized is required to be defined by Prior/ParametrizedPrior
+#     type class so that the np.vectorize is overriden because that is very slow
+#     2) So that the lnprior_and_transform_samples knows how to work with dictionaries
+#     instead of dataframes
+#     """
+#     @abstractmethod
+#     def lnprior_vectorized(self, *par_vals, **par_dic):
+#         """
+#         Natural logarithm of the prior probability density.
+#         Take `self.sampled_params + self.conditioned_on` parameters and
+#         return a float.
+#         """
     
-    def __init_subclass__(cls):
-        """
-        Set ``standard_params`` to match ``sampled_params``, and check
-        that ``IdentityTransformMixin`` comes before ``Prior`` in the
-        MRO.
-        """
-        super().__init_subclass__()
-        check_inheritance_order_and_position(cls, OptimizeVectorizationMixin, Prior)
+#     def __init_subclass__(cls):
+#         """
+#         Set ``standard_params`` to match ``sampled_params``, and check
+#         that ``IdentityTransformMixin`` comes before ``Prior`` in the
+#         MRO.
+#         """
+#         super().__init_subclass__()
+#         check_inheritance_order_and_position(cls, OptimizeVectorizationMixin, Prior)
 
-def check_inheritance_order_and_position(subclass, base1, base2):
-    """
-    Check that class `subclass` subclasses `base1` and `base2`, in that
-    order. If it doesn't, raise `PriorError`.
-    """
-    for base in base1, base2:
-        if not issubclass(subclass, base):
-            raise PriorError(
-                f'{subclass.__name__} must subclass {base.__name__}')
+# def check_inheritance_order_and_position(subclass, base1, base2):
+#     """
+#     Check that class `subclass` subclasses `base1` and `base2`, in that
+#     order. If it doesn't, raise `PriorError`.
+#     """
+#     for base in base1, base2:
+#         if not issubclass(subclass, base):
+#             raise PriorError(
+#                 f'{subclass.__name__} must subclass {base.__name__}')
 
-    if subclass.mro().index(base1) != subclass.mro().index(base2):
-        raise PriorError(f'Wrong inheritance order: `{subclass.__name__}` '
-                         f'must inherit from `{base1.__name__}` before '
-                         f'`{base2.__name__}` (or their subclasses).')
+#     if subclass.mro().index(base1) != subclass.mro().index(base2)+1:
+#         print(base1, subclass.mro().index(base1))
+#         print(base2, subclass.mro().index(base2))
+#         raise PriorError(f'Wrong inheritance order: `{subclass.__name__}` '
+#                          f'must inherit from `{base1.__name__}` before '
+#                          f'`{base2.__name__}` (or their subclasses).')

@@ -19,7 +19,7 @@ from cogwheel.gw_prior.spin import UniformEffectiveSpinPrior, ZeroInplaneSpinsPr
 from cogwheel.population_inference.parametrized_prior import ParametrizedPrior, CombinedParametrizedPrior, HyperPrior
 from scipy import interpolate
 
-
+#************************* Test Cogwheel Prior ************************************
 class GaussianTestPrior(IdentityTransformMixin, Prior):
     '''
     Prior to test the evidence returned by sampler
@@ -70,50 +70,8 @@ class FixedPhasePrior(FixedPrior):
     
 class FixedEffectiveSpinPrior(FixedPrior):
     """Set phase."""
-    standard_par_dic = {'s1z': 0.0, 's2z': 0.0}    
-    
-# ************************ Population Stuff **************************
-
-class GaussianTestPopulationPrior(ParametrizedPrior):
-    '''
-    Prior to test Parametrized Prior class
-    '''
-    standard_params = ['m1', 'm2']
-    conditioned_on = []
-    range_dic = {'m1': (-10,10), 'm2': (-10,10)}
-    hyper_params= ['lambda1', 'lambda2']
-    
-    def __init__(self, **kwargs):
-        #self.hyper_params = ['lambda1', 'lambda2']
-        super().__init__(self.hyper_params, **kwargs)
-    
-    def lnprior(self, m1, m2, lambda1, lambda2):
-        '''  
-        ln prior is gaussian normalized, with means [lambda1, lambda2]
-        '''
-        Cinv = np.array([[1/(0.05)**2, 0], [0, (1/0.05)**2]])
-        norm = np.sqrt((2*np.pi)**2 / np.linalg.det(Cinv))
-        mean = np.array([lambda1,lambda2])
-        m_arr = np.array([m1,m2])
-        lnprior_unnorm = -0.5 * (m_arr-mean) @ Cinv @ (m_arr-mean)
-        lnprior_norm = -np.log(norm) + lnprior_unnorm
-        
-        return lnprior_norm
-
-    def get_init_dict(self):
-        """
-        Return dictionary with keyword arguments to reproduce the class
-        instance. Subclasses should override this method if they require
-        initialization parameters.
-        """
-        return self.range_dic.update({"hyper_params": self.hyper_params})
-
-class GaussianTestHyperPrior(HyperPrior):
-    standard_params = ['R','lambda1', 'lambda2']
-    range_dic={'R':(1, 100), 'lambda1':(-10, 10), 'lambda2':(-10,10)}
-
-
-# ************************ Astrophysical Population Test **************************
+    standard_par_dic = {'s1z': 0.0, 's2z': 0.0}
+# ************************ Test Astrophysical Population **************************
 class GaussianChieff(ParametrizedPrior):
     '''
     Gaussian chieff model
@@ -155,7 +113,7 @@ class GaussianChieff(ParametrizedPrior):
 
 class GaussianChieffHyperPrior(HyperPrior):
     standard_params = ['R','chieff_mean', 'chieff_sigma']
-    range_dic={'R':(1, 100),'chieff_mean':(-1, 1), 'chieff_sigma':(0.2,2)}
+    range_dic={'R':(10, 1000),'chieff_mean':(-1, 1), 'chieff_sigma':(0.1,2)}
 
     
 
@@ -201,13 +159,13 @@ class FixedTestPopulationPrior(RegisteredPriorMixin, CombinedParametrizedPrior):
                      FixedTimePrior,
                      FixedPolarizationPrior,
                      FixedPhasePrior,
-                     GaussianTestPopulationPrior,
+                     GaussianChieff,
                      FixedEffectiveSpinPrior,
                      ZeroInplaneSpinsPrior,
                      ZeroTidalDeformabilityPrior,
                      FixedReferenceFrequencyPrior,
                      FixedDistancePrior]
-    hyper_prior_class = GaussianTestHyperPrior
+    hyper_prior_class = GaussianChieffHyperPrior
 
 
 class TestingGaussianChieff(RegisteredPriorMixin, CombinedParametrizedPrior):

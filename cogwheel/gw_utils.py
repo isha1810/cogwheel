@@ -61,6 +61,32 @@ def time_delay_from_geocenter(detector_names, ra, dec, tgps):
         lal.TimeDelayFromEarthCenter(DETECTORS[det].location, ra, dec, tgps)
         for det in detector_names])
 
+def fplus_fcross_detector(detector_name, ra, dec, psi, tgps):
+    """
+    Return a (2 x n_angles) array with F+, Fx for many angles at one detector.
+    ra, dec, psi, tgps can be scalars or arrays, and any with length > 1 must
+     share the same length.all have length n_angles, tgps can be scalar or array
+    """
+    if hasattr(tgps, '__len__'):
+        gmst = [lal.GreenwichMeanSiderealTime(t) for t in tgps]
+    else:
+        gmst = lal.GreenwichMeanSiderealTime(tgps)
+    return np.transpose([
+        lal.ComputeDetAMResponse(DETECTORS[detector_name].response, r, d, p, g)
+        for r, d, p, g in np.broadcast(ra, dec, psi, gmst)])
+
+def geometric_factor_detector(detector_name, ra, dec, psi, iota, tgps):
+    """
+    Return the complex geometric factor
+    R = (1+cos^2(iota)) Fp / 2 - i cos(iota) Fc
+    that relates a waveform with generic orientation to an overhead
+    face-on one for quadrupolar waveforms.
+    Note that the amplitude |R| is between 0 and 1.
+    """
+    fplus, fcross = fplus_fcross_detector(detector_name, ra, dec, psi, tgps)
+    cosiota = np.cos(iota)
+    return (1 + cosiota**2) / 2 * fplus - 1j * cosiota * fcross
+
 
 # ----------------------------------------------------------------------
 # Similar to the above, but in Earth-fixed coordinates and vectorized:

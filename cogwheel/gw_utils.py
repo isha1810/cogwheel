@@ -174,6 +174,31 @@ def m1m2_to_mchirp(m1, m2):
 def chieff(m1, m2, s1z, s2z):
     return (m1*s1z + m2*s2z) / (m1+m2)
 
+# Transform between standard and sampled spin params
+def transform_inplane_spins(s1x_n, s1y_n, s2x_n, s2y_n, phi_ref):
+    '''
+    Eq. B1 of cogwheel paper
+    transform from cogwheel s1x_n, s1y_n, s2x_n, s2y_n spin coordinates to
+    LIGO radiation frame
+    '''
+    s1x = s1x_n*np.cos(phi_ref) + s1y_n*np.sin(phi_ref)
+    s1y = -s1x_n*np.sin(phi_ref) + s1y_n*np.cos(phi_ref)
+    s2x = s2x_n*np.cos(phi_ref) + s2y_n*np.sin(phi_ref)
+    s2y = -s2x_n*np.sin(phi_ref) + s2y_n*np.cos(phi_ref)
+    return s1x, s1y, s2x, s2y
+
+def inverse_transform_inplane_spins(s1x, s1y, s2x, s2y, phi_ref):
+    '''
+    Eq. B1 of cogwheel paper
+    transform from LIGO radiation frame to
+    cogwheel s1x_n, s1y_n, s2x_n, s2y_n spin coordinates
+    '''
+    s1x_n = s1x*np.cos(phi_ref) - s1y*np.sin(phi_ref)
+    s1y_n = s1x*np.sin(phi_ref) + s1y*np.cos(phi_ref)
+    s2x_n = s2x*np.cos(phi_ref) - s2y*np.sin(phi_ref)
+    s2y_n = s2x*np.sin(phi_ref) + s2y*np.cos(phi_ref)
+    return s1x_n, s1y_n, s2x_n, s2y_n
+
 
 class _ChirpMassRangeEstimator:
     """

@@ -252,7 +252,7 @@ class CombinedParametrizedPrior(Prior):
             #     utils.update_dataframe(direct, standard)
             
             if not (set(cls.standard_params) <= set(samples_cols)):
-                missing_params = (cls.standard_params - 
+                missing_params = (set(cls.standard_params) - 
                                   set(cls.standard_params).intersection(set(samples_cols)))
                 raise PriorError("The samples do not contain the following keys", missing_params,
                                 "that are required to compute the lnprior")

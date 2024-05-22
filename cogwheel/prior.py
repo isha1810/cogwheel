@@ -163,7 +163,7 @@ class Prior(ABC, utils.JSONMixin):
         return a float.
         """
 
-    @abstractmethod
+    # @abstractmethod
     def lnprior_vectorized(self, *par_vals, **par_dic):
         """
         Natural logarithm of the prior probability density.
@@ -621,8 +621,11 @@ class CombinedPrior(Prior):
 
             lnp = 0
             for subprior in self.subpriors:
-                input_df = direct[
-                    subprior.sampled_params + subprior.conditioned_on]
+                if isinstance(subprior, FixedPrior):
+                    input_df = direct
+                else:
+                    input_df = direct[
+                        subprior.sampled_params + subprior.conditioned_on]
                 lnp += subprior.lnprior_vectorized(**input_df)
 
             return lnp

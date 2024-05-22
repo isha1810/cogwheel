@@ -21,7 +21,6 @@ class PopulationLikelihood(utils.JSONMixin):
     """
     def __init__(
             self, parametrized_population, injections_summary, all_pe_samples, R0):
-            # injection_population_model):
         """
         Parameters
         ----------
@@ -35,7 +34,6 @@ class PopulationLikelihood(utils.JSONMixin):
         self.pastro_func = injections_summary['pastro_func']
         self.recovered_injections = self.dataframe_to_dictionary(injections_summary['recovered_injections']) 
         self.Ninj = injections_summary['Ninj']
-        # self.injection_population_model = injection_population_model
         self.all_pe_samples = [self.dataframe_to_dictionary(pe_samples) for pe_samples in all_pe_samples]
         self.R0 = R0
 
@@ -53,7 +51,8 @@ class PopulationLikelihood(utils.JSONMixin):
         Returns Eq. 17
         """
         w_arr = np.zeros(len(self.all_pe_samples))
-        lnnorm_fiducial = np.log((1200/97)*np.pi*0.14)
+        #lnnorm_fiducial = np.log((1200/97)*np.pi*0.14)
+        lnnorm_fiducial = 0
         for i, pe_samples in enumerate(self.all_pe_samples):
             pe_samples_trunc = pe_samples #[0:1000]
             w_arr[i] = (np.sum(np.exp(self.parametrized_population.lnprior_and_transform_samples(

@@ -53,34 +53,11 @@ class ParametrizedPrior(Prior):
         """
         self.hyper_params=hyper_params
         super().__init__(**kwargs)
-
-    @staticmethod
-    def get_init_dict():
-        """
-        Return dictionary with keyword arguments to reproduce the class
-        instance. Subclasses should override this method if they require
-        initialization parameters.
-        """
-        return {}
     
     @utils.ClassProperty
     def hyper_params(self):
         """List of hyperparameter names."""
         return list(self.hyper_params)
-
-    @utils.lru_cache()
-    def transform(self, *par_vals, **par_dic):
-        """
-        Transform sampled parameter values to standard parameter values.
-        Take `self.sampled_params + self.conditioned_on` parameters and
-        return a dictionary with `self.standard_params` parameters.
-        """
-        par_dic.update(dict(zip(self.sampled_params + self.conditioned_on,
-                                par_vals)))
-        return {par: par_dic[par] for par in self.standard_params}
-
-    inverse_transform = transform
-
 
 class CombinedParametrizedPrior(Prior):
     """

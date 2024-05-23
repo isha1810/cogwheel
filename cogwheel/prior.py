@@ -16,6 +16,7 @@ uniform priors.
 from abc import ABC, abstractmethod
 import inspect
 import itertools
+from scipy import optimize
 import pandas as pd
 import numpy as np
 
@@ -23,7 +24,38 @@ from cogwheel import utils
 
 
 class PriorError(Exception):
-    """Base class for all exceptions in this module"""
+    """Base class for all exceptions in this module."""
+
+
+def has_compatible_signature(func, params) -> bool:
+    """
+    Return whether the signature of `func` is compatible with passing
+    `params`.
+    The signature is considered compatible if it takes `params`
+    explicitly in the correct order, or takes variable arguments in a
+    compatible way. This function ignores a leading 'self' parameter if
+    present in the signature of `func`.
+
+    Parameters
+    ----------
+    func: callable
+        Function or method to test.
+
+    params: sequence of str
+        Parameter names.
+    """
+    parameters = dict(inspect.signature(func).parameters)
+    if parameters and next(iter(parameters)) == 'self':
+        del parameters['self']
+
+    i_first_vararg = next(
+        (i for i, parameter in enumerate(parameters.values())
+         if parameter.kind in {inspect.Parameter.VAR_POSITIONAL,
+                               inspect.Parameter.VAR_KEYWORD}),
+        None)
+
+    positional = list(parameters)[:i_first_vararg]
+    return list(params[:i_first_vararg]) == positional
 
 
 class Prior(ABC, utils.JSONMixin):
@@ -128,35 +160,37 @@ class Prior(ABC, utils.JSONMixin):
         self.unfold = None  # Set by ``self._setup_folding_transforms()``
         self._setup_folding_transforms()
 
-    @utils.ClassProperty
-    def sampled_params(self):
-        """List of sampled parameter names."""
-        return list(self.range_dic)
+        self._max_lnprior = None  # Lazy attribute
 
     @utils.ClassProperty
+    def sampled_params(cls):
+        """List of sampled parameter names."""
+        return list(cls.range_dic)
+
+    @classmethod
+    @property
     @abstractmethod
-    def range_dic(self):
+    def range_dic(cls):
         """
         Dictionary whose keys are sampled parameter names and
         whose values are pairs of floats defining their ranges.
         Needs to be defined by the subclass.
         If the ranges are not known before class instantiation,
-        define a class attribute as {'<par_name>': NotImplemented, ...}
+        define a class attribute as {'<par_name>': None, ...}
         and populate the values at the subclass' `__init__()` before
         calling `Prior.__init__()`.
         """
         return {}
 
-    @utils.ClassProperty
+    @classmethod
+    @property
     @abstractmethod
-    def standard_params(self):
-        """
-        List of standard parameter names.
-        """
+    def standard_params(cls):
+        """List of standard parameter names."""
         return []
 
     @abstractmethod
-    def lnprior(self, *par_vals, **par_dic):
+    def lnprior(self) -> float:
         """
         Natural logarithm of the prior probability density.
         Take `self.sampled_params + self.conditioned_on` parameters and
@@ -173,7 +207,7 @@ class Prior(ABC, utils.JSONMixin):
         return np.vectorize(self.lnprior)(*par_vals, **par_dic)
 
     @abstractmethod
-    def transform(self, *par_vals, **par_dic):
+    def transform(self) -> dict:
         """
         Transform sampled parameter values to standard parameter values.
         Take `self.sampled_params + self.conditioned_on` parameters and
@@ -181,7 +215,7 @@ class Prior(ABC, utils.JSONMixin):
         """
 
     @abstractmethod
-    def inverse_transform(self, *par_vals, **par_dic):
+    def inverse_transform(self) -> dict:
         """
         Transform standard parameter values to sampled parameter values.
         Take `self.standard_params + self.conditioned_on` parameters and
@@ -366,8 +400,8 @@ class Prior(ABC, utils.JSONMixin):
         include_optional: bool, whether to include parameters with
                           defaults in the returned list.
         """
-        signature = inspect.signature(cls.__init__)
-        all_parameters = list(signature.parameters.values())[1:]
+        signature = inspect.signature(cls)
+        all_parameters = list(signature.parameters.values())
         sorted_unique_parameters = sorted(
             dict.fromkeys(all_parameters),
             key=lambda par: (par.kind, par.default is not par.empty))
@@ -381,8 +415,12 @@ class Prior(ABC, utils.JSONMixin):
 
     def __init_subclass__(cls):
         """
-        Check that subclasses that change the `__init__` signature also
-        define their own `get_init_dict` method.
+        Check that:
+        * Subclasses that change the `__init__` signature also define
+          their own `get_init_dict` method.
+        * Methods `.transform`, `.inverse_transform`, `.lnprior`,
+          `.lnprior_and_transform` have signatures compatible with the
+          correct ones.
         """
         super().__init_subclass__()
 
@@ -391,6 +429,17 @@ class Prior(ABC, utils.JSONMixin):
                 and cls.get_init_dict is Prior.get_init_dict):
             raise PriorError(
                 f'{cls.__name__} must override `get_init_dict` method.')
+
+        direct_params = cls.sampled_params + cls.conditioned_on
+        inverse_params = cls.standard_params + cls.conditioned_on
+        for func, params in [(cls.transform, direct_params),
+                             (cls.lnprior, direct_params),
+                             (cls.lnprior_and_transform, direct_params),
+                             (cls.inverse_transform, inverse_params)]:
+            if not has_compatible_signature(func, params):
+                raise PriorError(
+                    f'Expected signature of `{func.__qualname__}` to accept '
+                    f'{params}, got {inspect.signature(func)}.')
 
     def __repr__(self):
         """
@@ -403,8 +452,7 @@ class Prior(ABC, utils.JSONMixin):
         rep += f') → [{", ".join(self.standard_params)}]'
         return rep
 
-    @staticmethod
-    def get_init_dict():
+    def get_init_dict(self):
         """
         Return dictionary with keyword arguments to reproduce the class
         instance. Subclasses should override this method if they require
@@ -412,35 +460,38 @@ class Prior(ABC, utils.JSONMixin):
         """
         return {}
 
-    def transform_samples(self, samples: pd.DataFrame, force_update=True):
+    def transform_samples(self, samples: pd.DataFrame):
         """
         Add columns in-place for `self.standard_params` to `samples`.
         `samples` must include columns for `self.sampled_params` and
         `self.conditioned_on`.
+        Raise ``ValueError`` if `samples.index` is not a simple range.
 
         Parameters
         ----------
         samples: Dataframe with sampled params
-        force_update: bool, whether to force an update if the transformed
-                      standard samples already exist
         """
-        if (not force_update) and \
-                (set(self.standard_params) <= set(samples.columns)):
-            return
+        if not np.array_equal(samples.index, np.arange(len(samples))):
+            raise ValueError('Non-default index unsupported.')
+
         direct = samples[self.sampled_params + self.conditioned_on]
         standard = pd.DataFrame(list(np.vectorize(self.transform)(**direct)))
         utils.update_dataframe(samples, standard)
 
-    def inverse_transform_samples(self, samples: pd.DataFrame, force_update=True):
+    def inverse_transform_samples(self, samples: pd.DataFrame):
         """
         Add columns in-place for `self.sampled_params` to `samples`.
         `samples` must include columns for `self.standard_params`.
-        force_update: bool, whether to force an update if the inverse transformed
-                      sampled samples already exist
+
+        Raise ``ValueError`` if `samples.index` is not a simple range.
+
+        Parameters
+        ----------
+        samples: Dataframe with standard params
         """
-        if (not force_update and
-                (set(self.sampled_params) <= set(samples.columns))):
-            return
+        if not np.array_equal(samples.index, np.arange(len(samples))):
+            raise ValueError('Non-default index unsupported.')
+
         inverse = samples[self.standard_params + self.conditioned_on]
         sampled = pd.DataFrame(list(
             np.vectorize(self.inverse_transform)(**inverse)))
@@ -468,6 +519,75 @@ class Prior(ABC, utils.JSONMixin):
             direct = samples[self.sampled_params + self.conditioned_on]
 
         return self.lnprior_vectorized(**direct)
+
+    def generate_random_samples(self, n_samples, seed=None):
+        """
+        Sample the prior using rejection sampling.
+
+        This is more efficient for more uniform priors.
+
+        Parameters
+        ----------
+        n_samples: int
+            How many samples to generate.
+
+        seed:
+            Passed to ``numpy.default_rng``, for reproducibility.
+
+        Return
+        ------
+        pd.DataFrame with columns per
+        ``.sampled_params + .standard_params``, with samples distributed
+        according to the prior.
+        """
+        rng = np.random.default_rng(seed=seed)
+        chunksize = (n_samples, len(self.sampled_params))
+        lnprior = np.vectorize(self.lnprior, otypes=[float])
+
+        max_lnprior = -np.inf
+        samples = pd.DataFrame()
+        while len(samples) < n_samples:
+            candidates = pd.DataFrame(
+                self.cubemin + rng.uniform(0, self.cubesize, chunksize),
+                columns=self.sampled_params)
+
+            candidates_lnprior = lnprior(**candidates)
+            if (new_max := candidates_lnprior.max()) > self.max_lnprior:
+                # Upper bound had been underestimated, correct for that
+                accept_prob = np.exp(self.max_lnprior - new_max)
+                accept = rng.uniform(size=len(samples)) < accept_prob
+                samples = samples[accept]
+                self.max_lnprior = new_max
+
+            accept_prob = np.exp(candidates_lnprior - self.max_lnprior)
+            accept = rng.uniform(size=len(candidates)) < accept_prob
+            samples = pd.concat((samples, candidates[accept]),
+                                ignore_index=True)[:n_samples]
+
+        self.transform_samples(samples)
+        return samples
+
+    @property
+    def max_lnprior(self):
+        """Useful for rejection sampling."""
+        if self._max_lnprior is None:
+            self.max_lnprior = self._get_maximum_lnprior()
+        return self._max_lnprior
+
+    @max_lnprior.setter
+    def max_lnprior(self, max_lnprior):
+        if self._max_lnprior is not None and self._max_lnprior > max_lnprior:
+            raise PriorError(
+                'The provided `max_lnprior` does not maximize lnprior.')
+
+        self._max_lnprior = max_lnprior
+
+    def _get_maximum_lnprior(self):
+        minimize_result = optimize.minimize(
+            lambda par_vals: -self.lnprior(*par_vals),
+            x0=self.cubemin + self.cubesize/2,
+            bounds=self.range_dic.values())
+        return -minimize_result.fun
 
 
 class CombinedPrior(Prior):
@@ -501,9 +621,9 @@ class CombinedPrior(Prior):
                                args)))
 
         # Check for all required arguments at once:
-        required = [
-            par.name for par in self.init_parameters(include_optional=False)]
-        if missing := [par for par in required if par not in kwargs]:
+        required = {par.name
+                    for par in self.init_parameters(include_optional=False)}
+        if missing := required - kwargs.keys():
             raise TypeError(f'Missing {len(missing)} required arguments: '
                             f'{", ".join(missing)}')
 
@@ -554,8 +674,14 @@ class CombinedPrior(Prior):
                 input_dic = {par: par_dic[par]
                              for par in (subprior.sampled_params
                                          + subprior.conditioned_on)}
-                par_dic.update(subprior.transform(**input_dic))
-            return {par: par_dic[par] for par in self.standard_params}
+                output_dic = subprior.transform(**input_dic)
+
+                values = np.fromiter(output_dic.values(), float, len(output_dic))
+                if np.isnan(values).any():
+                    break
+                par_dic.update(output_dic)
+            return {par: par_dic.get(par, np.nan)
+                    for par in self.standard_params}
 
         def inverse_transform(self, *par_vals, **par_dic):
             """
@@ -584,12 +710,17 @@ class CombinedPrior(Prior):
             standard_par_dic = self.transform(**par_dic)
             par_dic.update(standard_par_dic)
 
-            lnp = 0
-            for subprior in self.subpriors:
-                input_dic = {par: par_dic[par]
-                             for par in (subprior.sampled_params
-                                         + subprior.conditioned_on)}
-                lnp += subprior.lnprior(**input_dic)
+            standard_par_vals = np.fromiter(
+                standard_par_dic.values(), float, len(standard_par_dic))
+            if np.isnan(standard_par_vals).any():
+                lnp = -np.inf
+            else:
+                lnp = 0
+                for subprior in self.subpriors:
+                    input_dic = {par: par_dic[par]
+                                 for par in (subprior.sampled_params
+                                             + subprior.conditioned_on)}
+                    lnp += subprior.lnprior(**input_dic)
             return lnp, standard_par_dic
 
         def lnprior(self, *par_vals, **par_dic):
@@ -599,9 +730,6 @@ class CombinedPrior(Prior):
             and return a float.
             """
             return self.lnprior_and_transform(*par_vals, **par_dic)[0]
-
-        def lnprior_vectorized(self, *par_vals, **par_dic):
-            raise RuntimeError("Use lnprior_and_transform_samples instead")
 
         def lnprior_and_transform_samples(self, samples: pd.DataFrame, force_update=True):
             """
@@ -780,22 +908,21 @@ class FixedPrior(Prior):
                      - self.__class__.standard_par_dic.keys()):
             raise ValueError(f'`standard_par_dic` has extra keys: {extra}')
 
-    @property
-    @staticmethod
+    @utils.ClassProperty
     @abstractmethod
-    def standard_par_dic():
+    def standard_par_dic(cls):
         """Dictionary with fixed parameter names and values."""
+        return {}
 
     @utils.ClassProperty
-    def standard_params(self):
-        return list(self.standard_par_dic)
+    def standard_params(cls):
+        return list(cls.standard_par_dic)
 
     range_dic = {}
 
-    @staticmethod
-    def lnprior():
+    def lnprior(self):
         """Natural logarithm of the prior probability density."""
-        return 0
+        return 0.
 
     def lnprior_vectorized(self, *par_vals, **par_dic):
         """Natural logarithm of the prior probability density."""
@@ -813,21 +940,27 @@ class FixedPrior(Prior):
         """Return a fixed dictionary of standard parameters."""
         return self.standard_par_dic
 
-    def inverse_transform(self, **standard_par_dic):
+    def inverse_transform(self, *standard_par_vals, **standard_par_dic):
         """
         Return an empty dictionary of sampled parameters.
-        If `require_consistency` is set to `True`, verify that the
-        `standard_par_dic` passed matches the one stored and raise
-        `PriorError` if it does not.
+        Raise `PriorError` if the arguments passed do not match the
+        `standard_par_dic` stored.
         """
-        if mismatched := [par for par, value in self.standard_par_dic.items()
-                          if value != standard_par_dic[par]]:
+        standard_par_dic.update(dict(zip(self.standard_params,
+                                         standard_par_vals)))
+        if mismatched := [(par, standard_par_dic[par], fixed_val)
+                          for par, fixed_val in self.standard_par_dic.items()
+                          if fixed_val != standard_par_dic[par]]:
             raise PriorError(
                 'Cannot invert `standard_par_dic` because it does not '
-                f'match the entries for {", ".join(mismatched)} in the '
-                'fixed prior.')
+                'match the following entries in the fixed prior:' +
+                ''.join(f"\n  {par}: {val} ≠ {fixed_val}"
+                        for par, val, fixed_val in mismatched))
 
         return {}
+
+    def _get_maximum_lnprior(self):
+        return 0.0
 
 
 class UniformPriorMixin:
@@ -836,14 +969,14 @@ class UniformPriorMixin:
     It must be inherited before `Prior` (otherwise a `PriorError` is
     raised) so that abstract methods get overriden.
     """
-    @utils.lru_cache()
     def lnprior(self, *par_vals, **par_dic):
         """
         Natural logarithm of the prior probability density.
         Take `self.sampled_params + self.conditioned_on` parameters and
         return a float.
         """
-        return - np.log(np.prod(self.cubesize))
+        del par_vals, par_dic
+        return self.max_lnprior
 
     def lnprior_vectorized(self, *par_vals, **par_dic):
         """
@@ -866,6 +999,9 @@ class UniformPriorMixin:
         """
         super().__init_subclass__()
         check_inheritance_order(cls, UniformPriorMixin, Prior)
+
+    def _get_maximum_lnprior(self):
+        return - np.log(np.prod(self.cubesize))
 
 
 class IdentityTransformMixin:

@@ -1,5 +1,7 @@
 """Download, process and store data about GW events."""
 
+import json
+import logging
 import pathlib
 from scipy import signal
 from scipy import interpolate
@@ -49,7 +51,7 @@ class EventData(utils.JSONMixin):
     filter for multiple detectors.
     """
     def __init__(self, eventname, frequencies, strain, wht_filter,
-                 detector_names, tgps, tcoarse):
+                 detector_names, tgps, tcoarse, injection=None):
         """
         Parameters
         ----------
@@ -77,6 +79,9 @@ class EventData(utils.JSONMixin):
 
         tcoarse: float
             Time of event relative to beginning of data.
+
+        injection: dict, optional
+            For bookkeeping, not actually used.
         """
         super().__init__()
         assert strain.shape[0] == len(detector_names)
@@ -91,18 +96,21 @@ class EventData(utils.JSONMixin):
                                 err_msg='Frequency grid must start at 0')
 
         self.eventname = eventname
-        self.detector_names = detector_names
+        self.detector_names = tuple(detector_names)
         self.tgps = tgps
         self.tcoarse = tcoarse
         self.wht_filter = wht_filter
 
-        self.blued_strain = None  # Set by ``set_strain()``
+        self.blued_strain = None  # Set by ``._set_strain()``
         self._set_strain(strain)
 
         nonzero = np.nonzero(np.sum(self.wht_filter, axis=0))[0]
         self.fslice = slice(nonzero[0], nonzero[-1] + 1)
         self.fbounds = self.frequencies[nonzero[[0, -1]]]
-        self.injection = None
+
+        self._check_wht_filter_validity()
+
+        self.injection = injection
 
     def _set_strain(self, strain):
         self.strain = strain
@@ -216,11 +224,11 @@ class EventData(utils.JSONMixin):
             raise DataError(f'{filename} has no data at event time.')
 
         i_start = 0
-        if np.any(before := (i_nan < i_event)):
+        if np.any(before := i_nan < i_event):
             i_start = np.max(i_nan[before]) + 1
 
         i_end = len(timeseries)
-        if np.any(after := (i_nan > i_event)):
+        if np.any(after := i_nan > i_event):
             i_end = np.min(i_nan[after]) - 1
 
         t_start = timeseries.times[i_start]
@@ -384,6 +392,7 @@ class EventData(utils.JSONMixin):
             raise ValueError(
                 'Lengths of `detector_names` and `asd_funcs` should match.')
 
+        asd_funcs = list(asd_funcs)  # Ensure it is mutable
         for i, asd_func in enumerate(asd_funcs):
             if isinstance(asd_func, str):
                 if not asd_func in ASDS:
@@ -410,6 +419,8 @@ class EventData(utils.JSONMixin):
         Add a signal to the data. Injection parameters will be stored as
         a dictionary in the ``injection`` attribute. The inner product
         ⟨h|h⟩ at each detector (ignoring ASD-drift correction) is also stored.
+        The signal is computed only at frequencies where the whitening filter
+        has support.
 
         Parameters
         ----------
@@ -422,14 +433,15 @@ class EventData(utils.JSONMixin):
         """
         waveform_generator = waveform.WaveformGenerator.from_event_data(
             self, approximant)
-        h_f = waveform_generator.get_strain_at_detectors(self.frequencies,
-                                                         par_dic)
+        h_f = np.zeros_like(self.strain)
+        h_f[:, self.fslice] = waveform_generator.get_strain_at_detectors(
+            self.frequencies[self.fslice], par_dic)
         self._set_strain(self.strain + h_f)
 
         h_h = 4 * self.df * np.linalg.norm(h_f * self.wht_filter, axis=-1)**2
-        self.injection = dict(par_dic=par_dic,
-                              approximant=approximant,
-                              h_h=h_h)
+        self.injection = {'par_dic': par_dic,
+                          'approximant': approximant,
+                          'h_h': h_h}
 
     def specgram(self, xlim=None, nfft=64, noverlap=None, vmax=25.):
         """
@@ -474,7 +486,8 @@ class EventData(utils.JSONMixin):
                     transform=ax.transAxes, c='w')
 
         axes[0].set_title(self.eventname)
-        axes[-1].set_xlabel(rf'$t_{{\rm GPS}} - {self.tgps}$ (s)')
+        minus_tgps = f' - {self.tgps}' if self.tgps != 0 else ''
+        axes[-1].set_xlabel(rf'$t_{{\rm GPS}}{minus_tgps}$ (s)')
         axes[-1].set_xlim(xlim)
 
         plt.figtext(0., .5, 'Frequency (Hz)', rotation=90,
@@ -490,7 +503,10 @@ class EventData(utils.JSONMixin):
         if not overwrite and filename.exists():
             raise FileExistsError(f'{filename} already exists. '
                                   'Pass `overwrite=True` to overwrite.')
-        np.savez(filename, **self.get_init_dict())
+
+        dic = self.get_init_dict()
+        dic['injection'] = json.dumps(dic['injection'], cls=utils.NumpyEncoder)
+        np.savez(filename, **dic)
         filename.chmod(permissions)
 
     @classmethod
@@ -501,6 +517,9 @@ class EventData(utils.JSONMixin):
                 raise ValueError('Pass exactly one of `eventname`, `filename`')
             filename = cls.get_filename(eventname)
         dic = {key: val[()] for key, val in np.load(filename).items()}
+
+        if 'injection' in dic:
+            dic['injection'] = json.loads(dic['injection'])
 
         # Backward compatibility:
         if 'psd' in dic:
@@ -515,6 +534,34 @@ class EventData(utils.JSONMixin):
     def get_filename(eventname=None):
         """Return npz filename to save/load class instance."""
         return DATADIR/f'{eventname}.npz'
+
+    def _check_wht_filter_validity(self):
+        """
+        GWOSC data at 4096 Hz sampling rate has a downsampling artifact
+        that manifests as an overly low PSD, i.e. high whitening filter,
+        above 1620 Hz (see https://gwosc.org/yellow_box/).
+        This method checks if the whitening filter looks suspicious, and
+        issues a warning if yes.
+        """
+        if self.fbounds[1] < 1620:
+            return
+
+        ind_split = np.searchsorted(self.frequencies, 1620)
+        wht_filter_pre, wht_filter_post = np.split(self.wht_filter,
+                                                   [ind_split], axis=1)
+
+        if np.linalg.norm(wht_filter_pre) < np.linalg.norm(wht_filter_post):
+            logging.warning(
+                'The whitening filter has most power at high frequencies. '
+                'This is likely a downsampling artifact in the GWOSC data. '
+                'Make sure the whitening filter is correct! '
+                'If it is not, try downloading their 16384 Hz data, or using '
+                'fmax <= 1620 Hz. See https://gwosc.org/yellow_box/ .'
+                'To plot the whitening filter do:\n\t'
+                'plt.plot(event_data.frequencies, event_data.wht_filter.T)\n'
+                'To download 16384 Hz data do:\n\t'
+                'cogwheel.data.download_timeseries('
+                f'{self.eventname!r}, overwrite=True, sample_rate=2**14)')
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.eventname})'
@@ -534,7 +581,8 @@ def highpass_filter(frequencies, fmin=15., df_taper=1.):
 
 
 def download_timeseries(eventname, outdir=None, tgps=None,
-                        interval=(-2048, 2048), overwrite=False):
+                        interval=(-2048, 2048), overwrite=False,
+                        **kwargs):
     """
     Download data from gwosc, save as hdf5 format that can be read by
     `gwpy.timeseries.Timeseries.read()`.
@@ -564,18 +612,63 @@ def download_timeseries(eventname, outdir=None, tgps=None,
 
     utils.mkdirs(outdir)
 
-    for det in gw_utils.DETECTORS:
-        path = outdir/f'{det}_{eventname}.hdf5'
+    for detector_name in gw_utils.DETECTORS:
+        path = outdir/f'{detector_name}_{eventname}.hdf5'
         if path.exists() and not overwrite:
             print(f'Skipping existing file {path.resolve()}')
             continue
 
         try:
-            timeseries = gwpy.timeseries.TimeSeries.fetch_open_data(
-                f'{det}1', *np.add(tgps, interval).astype(int))
+            timeseries = _fetch_open_data(detector_name, tgps, interval,
+                                          **kwargs)
         except ValueError:  # That detector has no data
             pass
         else:
             if not np.isnan(timeseries[np.searchsorted(timeseries.times.value,
                                                        tgps)]):
+                if path.exists():
+                    path.unlink()
                 timeseries.write(path)
+
+def _fetch_open_data(detector_name, tgps, interval, **kwargs):
+    """
+    Similar to ``gwpy.timeseries.TimeSeries.fetch_open_data`` except
+    that if it fails to find files for the whole requested time range,
+    it will make an attempt to download a reduced range by restricting
+    to the file containing the event. If that also fails, ValueError is
+    raised.
+
+    Parameters
+    ----------
+    detector_name: str
+        Detector initial, e.g. 'H' for Hanford.
+
+    tgps: float
+        GPS time of event.
+
+    interval: (float, float)
+        Start and end time relative to tgps (s).
+
+    **kwargs:
+        Passed to ``gwpy.timeseries.TimeSeries.fetch_open_data``.
+
+    Return
+    ------
+        gwpy.timeseries.TimeSeries
+    """
+    start, end = np.add(tgps, interval).astype(int)
+    ifo = detector_name.removesuffix('1') + '1'
+    try:
+        timeseries = gwpy.timeseries.TimeSeries.fetch_open_data(
+            ifo, start, end, **kwargs)
+    except ValueError:
+        # This detector has no data for the whole range.
+        # Attempt downloading only the file that contains ``tgps``.
+        # Assume file boundaries ocurr at multiples of 4096 s GPS time.
+        t_lower = int(tgps) // 4096 * 4096
+        t_upper = t_lower + 4096
+        start, end = np.clip((start, end), t_lower, t_upper)
+        timeseries = gwpy.timeseries.TimeSeries.fetch_open_data(
+            ifo, start, end, **kwargs)
+
+    return timeseries

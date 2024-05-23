@@ -88,6 +88,13 @@ def geometric_factor_detector(detector_name, ra, dec, psi, iota, tgps):
     return (1 + cosiota**2) / 2 * fplus - 1j * cosiota * fcross
 
 
+@utils.lru_cache()
+def detector_travel_times(detector_name_1, detector_name_2):
+    """Return light travel time between two detectors [seconds]."""
+    return np.linalg.norm(DETECTORS[detector_name_1].location
+                          - DETECTORS[detector_name_2].location) / lal.C_SI
+
+
 # ----------------------------------------------------------------------
 # Similar to the above, but in Earth-fixed coordinates and vectorized:
 def get_geocenter_delays(detector_names, lat, lon):
@@ -172,6 +179,7 @@ def m1m2_to_mchirp(m1, m2):
 
 
 def chieff(m1, m2, s1z, s2z):
+    """Effective spin."""
     return (m1*s1z + m2*s2z) / (m1+m2)
 
 # Transform between standard and sampled spin params
@@ -200,6 +208,15 @@ def inverse_transform_inplane_spins(s1x, s1y, s2x, s2y, phi_ref):
     return s1x_n, s1y_n, s2x_n, s2y_n
 
 
+def isco_frequency(m_tot):
+    """
+    Return approximate gravitational-wave frequency (Hz) of the
+    innermost stable circular orbit of a binary of total mass `m_tot`
+    (Msun): f_ISCO = 1 / (6^(3/2) pi m_tot) c^3 / G.
+    """
+    return 4400 / m_tot
+
+
 class _ChirpMassRangeEstimator:
     """
     Class that implements a rough estimation of the chirp mass posterior
@@ -217,8 +234,8 @@ class _ChirpMassRangeEstimator:
 
     def _x_of_mchirp(self, mchirp):
         """
-        Chirp-mass reparametrization in which the uncertainty
-        is approximately homogeneous.
+        Chirp-mass reparametrization in which the uncertainty is
+        approximately homogeneous.
         """
         if mchirp > self.mchirp_0:
             return mchirp
@@ -227,18 +244,23 @@ class _ChirpMassRangeEstimator:
 
     def __call__(self, mchirp, sigmas=5, snr=8):
         """
-        Return an array with the minimum and maximum estimated
-        values of mchirp with posterior support.
+        Return an array with the minimum and maximum estimated values of
+        mchirp with posterior support.
         Intended for setting ranges for sampling or maximization.
         Keep in mind this is very approximate, check your results
         responsibly.
 
         Parameters
         ----------
-        mchirp: Estimate of the center of the mchirp distribution.
-        sigmas: How big (conservative) to make the range compared
-                to the expected width of the distribution.
-        snr: Signal-to-noise ratio, lower values give bigger ranges.
+        mchirp: float
+            Estimate of the center of the mchirp distribution (Msun).
+
+        sigmas: float
+            How big (conservative) to make the range compared to the
+            expected width of the distribution.
+
+        snr: float
+            Signal-to-noise ratio, lower values give bigger ranges.
         """
         x = self._x_of_mchirp(mchirp)
         dx = 200. * sigmas / snr

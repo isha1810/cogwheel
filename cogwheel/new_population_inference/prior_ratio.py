@@ -46,3 +46,39 @@ class GaussianChieffToIASPriorRatio(PriorRatio):
                                                      scale=chieff_std)
         ias_chieff_lnp = np.log(0.5)
         return gaussian_chieff_lnp - ias_chieff_lnp
+
+class FiducialModelPriortoIASPriorRatio(PriorRatio):
+    '''
+    Ratio between the Fiducial model Prior (here Injection Prior) and the 
+    IASPrior used for PE. This is the ratio of the f's and has no
+    dimensions
+    '''
+    numerator = 'InjectionPrior'
+    denominator = 'IASPrior'
+    params = ['m1', 'd_luminosity']
+    hyperparams = []
+
+    def lnprior_ratio(m1, d_luminosity):
+        alpha=2.
+        redshift = z_of_d_luminosity(d_luminosity)
+        return (-alpha*np.log(m1) + 
+                np.log(1+redshift) + 
+                np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity)))
+
+class IASPriortoInjectionPriorRatio(PriorRatio):
+    '''
+    Ratio between the IASPrior and the Injection Prior
+    (probability density). This ratio has units of VT.
+    '''
+    numerator = 'IASPrior'
+    denominator = 'InjectionPrior'
+    params = ['m1', 'd_luminosity']
+    hyperparams = []
+
+    def lnprior_ratio(m1, d_luminosity):
+        alpha=2.
+        redshift = z_of_d_luminosity(d_luminosity)
+        return (alpha*np.log(m1) - 
+                np.log(1+redshift) - 
+                np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity)))
+

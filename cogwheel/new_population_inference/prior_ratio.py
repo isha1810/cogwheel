@@ -3,6 +3,7 @@ from scipy import stats
 import numpy as np
 
 from .base_prior_ratio import PriorRatio
+from cogwheel.cosmology import z_of_d_luminosity, comoving_to_luminosity_diff_vt_ratio
 
 
 class GaussianChieffToIASPriorRatio(PriorRatio):
@@ -58,7 +59,7 @@ class FiducialModelPriortoIASPriorRatio(PriorRatio):
     params = ['m1', 'd_luminosity']
     hyperparams = []
 
-    def lnprior_ratio(m1, d_luminosity):
+    def lnprior_ratio(self, m1, d_luminosity):
         alpha=2.
         redshift = z_of_d_luminosity(d_luminosity)
         return (-alpha*np.log(m1) + 
@@ -75,7 +76,7 @@ class IASPriortoInjectionPriorRatio(PriorRatio):
     params = ['m1', 'd_luminosity']
     hyperparams = []
 
-    def lnprior_ratio(m1, d_luminosity):
+    def lnprior_ratio(self, m1, d_luminosity):
         alpha=2.
         redshift = z_of_d_luminosity(d_luminosity)
         return (alpha*np.log(m1) - 

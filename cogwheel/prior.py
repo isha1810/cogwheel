@@ -776,7 +776,7 @@ class CombinedPrior(Prior):
         cls.inverse_transform = inverse_transform
         cls.lnprior_and_transform = lnprior_and_transform
         cls.lnprior = lnprior
-        cls.lnprior_vectorized = lnprior_vectorized
+        # cls.lnprior_vectorized = lnprior_vectorized
         cls.lnprior_and_transform_samples = lnprior_and_transform_samples
 
     @classmethod

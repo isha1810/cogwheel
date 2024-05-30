@@ -50,14 +50,17 @@ class Posterior(utils.JSONMixin):
         self.prior = prior
         self.likelihood = likelihood
 
-        # Increase `n_cached_waveforms` to ensure fast moves remain fast
-        fast_sampled_params = self.prior.get_fast_sampled_params(
-            self.likelihood.waveform_generator.fast_params)
-        n_slow_folded = len(set(self.prior.folded_params)
-                            - set(fast_sampled_params))
-        self.likelihood.waveform_generator.n_cached_waveforms \
-            = 2 ** n_slow_folded
-
+        try:
+            # Increase `n_cached_waveforms` to ensure fast moves remain fast
+            fast_sampled_params = self.prior.get_fast_sampled_params(
+                self.likelihood.waveform_generator.fast_params)
+            n_slow_folded = len(set(self.prior.folded_params)
+                                - set(fast_sampled_params))
+            self.likelihood.waveform_generator.n_cached_waveforms \
+                = 2 ** n_slow_folded
+        except AttributeError:
+            pass
+            
         # Match lnposterior signature to that of transform
         signature = inspect.signature(self.prior.__class__.transform)
         self.lnposterior.__func__.__signature__ = signature

@@ -5,7 +5,7 @@ import numpy as np
 from cogwheel import gw_utils, cosmology
 from cogwheel.cosmology import comoving_to_luminosity_diff_vt_ratio
 
-from cogwheel.prior import Prior, CombinedPrior, IdentityTransformMixin, FixedPrior
+from cogwheel.prior import Prior, CombinedPrior, IdentityTransformMixin, FixedPrior, UniformPriorMixin
 from cogwheel.gw_prior.extrinsic import (UniformPhasePrior,
                                         IsotropicInclinationPrior,
                                         IsotropicSkyLocationPrior,
@@ -16,7 +16,7 @@ from cogwheel.gw_prior.combined import RegisteredPriorMixin
 from cogwheel.gw_prior.miscellaneous import (ZeroTidalDeformabilityPrior,
                                              FixedReferenceFrequencyPrior)
 from cogwheel.gw_prior.spin import UniformEffectiveSpinPrior, ZeroInplaneSpinsPrior
-from cogwheel.population_inference.parametrized_prior import ParametrizedPrior, CombinedParametrizedPrior, HyperPrior
+from cogwheel.population_inference.parametrized_prior import ParametrizedPrior, CombinedParametrizedPrior#, HyperPrior
 from scipy import interpolate
 
 #************************* Test Cogwheel Prior ************************************
@@ -111,7 +111,7 @@ class GaussianChieff(ParametrizedPrior):
         return init_dict
 
 
-class GaussianChieffHyperPrior(HyperPrior):
+class GaussianChieffHyperPrior(UniformPriorMixin, IdentityTransformMixin, Prior):
     standard_params = ['R','chieff_mean', 'chieff_sigma']
     range_dic={'R':(10, 1000),'chieff_mean':(-1, 1), 'chieff_sigma':(0.1,2)}
 

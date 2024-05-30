@@ -83,6 +83,7 @@ class PopulationLikelihood(utils.JSONMixin):
     def _compute_vt(self, shape_hyperparams):
         vt = 1 / self.n_inj * np.sum(
             np.exp(self._compute_ln_prior_ratio(self.recovered_injections,
+                                                self.population_to_pe_ratio,
                                                 **shape_hyperparams)
                    + self._pe_to_ref_population_ratio_lnprior_arr))
         return vt

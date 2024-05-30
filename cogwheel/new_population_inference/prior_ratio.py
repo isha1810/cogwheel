@@ -2,7 +2,7 @@
 from scipy import stats
 import numpy as np
 
-from .base_prior_ratio import PriorRatio
+from base_prior_ratio import PriorRatio
 from cogwheel.cosmology import z_of_d_luminosity, comoving_to_luminosity_diff_vt_ratio
 
 
@@ -48,38 +48,50 @@ class GaussianChieffToIASPriorRatio(PriorRatio):
         ias_chieff_lnp = np.log(0.5)
         return gaussian_chieff_lnp - ias_chieff_lnp
 
-class FiducialModelPriortoIASPriorRatio(PriorRatio):
+class InjectionPriortoIASPriorRatio(PriorRatio):
     '''
-    Ratio between the Fiducial model Prior (here Injection Prior) and the 
+    Ratio between the Injection Prior and the 
     IASPrior used for PE. This is the ratio of the f's and has no
     dimensions
     '''
     numerator = 'InjectionPrior'
     denominator = 'IASPrior'
-    params = ['m1', 'd_luminosity']
+    params = ['m1_source', 'd_luminosity']
     hyperparams = []
 
-    def lnprior_ratio(self, m1, d_luminosity):
+    def lnprior_ratio(self, m1_source, d_luminosity):
         alpha=2.
-        redshift = z_of_d_luminosity(d_luminosity)
-        return (-alpha*np.log(m1) + 
-                np.log(1+redshift) + 
-                np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity)))
+        mmin=1.
+        z = z_of_d_luminosity(d_luminosity)
+        
+        injection_jacobian = (-np.log(m1_source) - np.log(1-(mmin/m1_source)) )
+                                   # + np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity)))
+        injection_lnp = -alpha*np.log(m1_source) - np.log(97/300) + injection_jacobian
+        
+        ias_mass_jacobian = 2*np.log(1+z)
+        ias_mass_lnp = -2*np.log(97) + ias_mass_jacobian
+        
+        return (injection_lnp - ias_mass_lnp)
 
 class IASPriortoInjectionPriorRatio(PriorRatio):
     '''
     Ratio between the IASPrior and the Injection Prior
-    (probability density). This ratio has units of VT.
+    (probability density).
     '''
     numerator = 'IASPrior'
     denominator = 'InjectionPrior'
-    params = ['m1', 'd_luminosity']
+    params = ['m1_source', 'd_luminosity']
     hyperparams = []
 
-    def lnprior_ratio(self, m1, d_luminosity):
+    def lnprior_ratio(self, m1_source, d_luminosity):
         alpha=2.
-        redshift = z_of_d_luminosity(d_luminosity)
-        return (alpha*np.log(m1) - 
-                np.log(1+redshift) - 
-                np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity)))
-
+        mmin=1.
+        z = z_of_d_luminosity(d_luminosity)
+        
+        injection_jacobian = (-np.log(m1_source) - np.log(1-(mmin/m1_source)) )
+                                   # + np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity)))
+        injection_lnp = -alpha*np.log(m1_source) - np.log(97/300) + injection_jacobian
+        
+        ias_mass_jacobian = 2*np.log(1+z)
+        ias_mass_lnp = -2*np.log(97) + ias_mass_jacobian
+        return (ias_mass_lnp - injection_lnp)

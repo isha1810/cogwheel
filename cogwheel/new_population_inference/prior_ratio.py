@@ -13,10 +13,10 @@ class GaussianChieffToIASPriorRatio(PriorRatio):
     """
     numerator = 'GaussianChieff'
     denominator = 'IASPrior'
-    params = ['chieff']
+    params = ['chieff','m1_source', 'd_luminosity']
     hyperparams = ['chieff_mean', 'chieff_std']
 
-    def lnprior_ratio(self, chieff, chieff_mean, chieff_std):
+    def lnprior_ratio(self, chieff, m1_source, d_luminosity, chieff_mean, chieff_std):
         """
         Return log of the ratio between a (truncated) Gaussian prior on chieff
         and the IAS (flat) chieff prior.
@@ -46,7 +46,12 @@ class GaussianChieffToIASPriorRatio(PriorRatio):
                                                      loc=chieff_mean,
                                                      scale=chieff_std)
         ias_chieff_lnp = np.log(0.5)
-        return gaussian_chieff_lnp - ias_chieff_lnp
+        z = z_of_d_luminosity(d_luminosity)
+        mmin = 1.
+        mass_lnp = -2.*np.log(m1_source) - np.log(97/300) -np.log(m1_source) - np.log(1-(mmin/m1_source))
+        ias_mass_lnp =  -2*np.log(97) + 2*np.log(1+z)
+        
+        return gaussian_chieff_lnp - ias_chieff_lnp + mass_lnp - ias_mass_lnp
 
 class InjectionPriortoIASPriorRatio(PriorRatio):
     '''

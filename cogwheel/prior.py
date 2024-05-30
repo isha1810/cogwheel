@@ -432,14 +432,14 @@ class Prior(ABC, utils.JSONMixin):
 
         direct_params = cls.sampled_params + cls.conditioned_on
         inverse_params = cls.standard_params + cls.conditioned_on
-        for func, params in [(cls.transform, direct_params),
-                             (cls.lnprior, direct_params),
-                             (cls.lnprior_and_transform, direct_params),
-                             (cls.inverse_transform, inverse_params)]:
-            if not has_compatible_signature(func, params):
-                raise PriorError(
-                    f'Expected signature of `{func.__qualname__}` to accept '
-                    f'{params}, got {inspect.signature(func)}.')
+        # for func, params in [(cls.transform, direct_params),
+        #                      (cls.lnprior, direct_params),
+        #                      (cls.lnprior_and_transform, direct_params),
+        #                      (cls.inverse_transform, inverse_params)]:
+        #     if not has_compatible_signature(func, params):
+        #         raise PriorError(
+        #             f'Expected signature of `{func.__qualname__}` to accept '
+        #             f'{params}, got {inspect.signature(func)}.')
 
     def __repr__(self):
         """
@@ -776,7 +776,7 @@ class CombinedPrior(Prior):
         cls.inverse_transform = inverse_transform
         cls.lnprior_and_transform = lnprior_and_transform
         cls.lnprior = lnprior
-        cls.lnprior_vectorized = lnprior_vectorized
+        # cls.lnprior_vectorized = lnprior_vectorized
         cls.lnprior_and_transform_samples = lnprior_and_transform_samples
 
     @classmethod

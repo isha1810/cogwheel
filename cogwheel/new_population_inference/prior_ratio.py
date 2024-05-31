@@ -13,7 +13,7 @@ class GaussianChieffToIASPriorRatio(PriorRatio):
     """
     numerator = 'GaussianChieff'
     denominator = 'IASPrior'
-    params = ['chieff','m1_source', 'd_luminosity']
+    params = ['chieff', 'm1_source', 'd_luminosity']
     hyperparams = ['chieff_mean', 'chieff_std']
 
     def lnprior_ratio(self, chieff, m1_source, d_luminosity, chieff_mean, chieff_std):
@@ -48,7 +48,7 @@ class GaussianChieffToIASPriorRatio(PriorRatio):
         ias_chieff_lnp = np.log(0.5)
         z = z_of_d_luminosity(d_luminosity)
         mmin = 1.
-        mass_lnp = -2.*np.log(m1_source) - np.log(97/300) -np.log(m1_source) - np.log(1-(mmin/m1_source))
+        mass_lnp = -2.*np.log(m1_source) - np.log(97/300) -np.log(m1_source)
         ias_mass_lnp =  -2*np.log(97) + 2*np.log(1+z)
         
         return gaussian_chieff_lnp - ias_chieff_lnp + mass_lnp - ias_mass_lnp

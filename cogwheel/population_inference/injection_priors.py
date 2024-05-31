@@ -130,7 +130,7 @@ class InjectionMassPrior(ReferenceDetectorMixin, Prior):
                 'd_hat': d_luminosity / self._conversion_factor(ra, dec, psi,
                                                                 iota, m1, m2)}
     
-    def lnprior(self, m1_source, cum_q, d_hat, ra, dec, psi, iota, d_luminosity=None):
+    def lnprior(self, m1_source, cum_q, d_hat, ra, dec, psi, iota):
         """
         Prior distribution as defined in Eq(24) of https://arxiv.org/pdf/2008.07014.pdf
         f (m1_source, q, chi_eff, D_L) = m1_source^alpha * D_L^2

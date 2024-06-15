@@ -48,8 +48,11 @@ class GaussianChieffToIASPriorRatio(PriorRatio):
         ias_chieff_lnp = np.log(0.5)
         z = z_of_d_luminosity(d_luminosity)
         mmin = 1.
-        mass_lnp = -2.*np.log(m1_source) - np.log(97/300) -np.log(m1_source)
-        ias_mass_lnp =  -2*np.log(97) + 2*np.log(1+z)
+        mass_lnp = (np.log(300/97) -2.*np.log(m1_source)
+                    + np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity)))
+        
+        ias_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
+        ias_mass_lnp = ias_mass_jacobian
         
         return gaussian_chieff_lnp - ias_chieff_lnp + mass_lnp - ias_mass_lnp
 
@@ -68,13 +71,12 @@ class InjectionPriortoIASPriorRatio(PriorRatio):
         alpha=2.
         mmin=1.
         z = z_of_d_luminosity(d_luminosity)
+        injection_jacobian = (- np.log(1-(mmin/m1_source))
+                        + np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity)))
+        injection_lnp = np.log(300/97) - alpha*np.log(m1_source) + injection_jacobian
         
-        injection_jacobian = (-np.log(m1_source) - np.log(1-(mmin/m1_source)) )
-                                   # + np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity)))
-        injection_lnp = -alpha*np.log(m1_source) - np.log(97/300) + injection_jacobian
-        
-        ias_mass_jacobian = 2*np.log(1+z)
-        ias_mass_lnp = -2*np.log(97) + ias_mass_jacobian
+        ias_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
+        ias_mass_lnp = ias_mass_jacobian
         
         return (injection_lnp - ias_mass_lnp)
 
@@ -92,11 +94,11 @@ class IASPriortoInjectionPriorRatio(PriorRatio):
         alpha=2.
         mmin=1.
         z = z_of_d_luminosity(d_luminosity)
+        injection_jacobian = (- np.log(1-(mmin/m1_source)) +
+                        np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity))) 
+        injection_lnp = np.log(300/97) - alpha*np.log(m1_source) + injection_jacobian
         
-        injection_jacobian = (-np.log(m1_source) - np.log(1-(mmin/m1_source)) )
-                                   # + np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity)))
-        injection_lnp = -alpha*np.log(m1_source) - np.log(97/300) + injection_jacobian
+        ias_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
+        ias_mass_lnp = ias_mass_jacobian
         
-        ias_mass_jacobian = 2*np.log(1+z)
-        ias_mass_lnp = -2*np.log(97) + ias_mass_jacobian
         return (ias_mass_lnp - injection_lnp)

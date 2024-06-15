@@ -8,7 +8,7 @@ class PopulationLikelihood(utils.JSONMixin):
     def __init__(self,
                  population_to_pe_ratio,
                  ref_population_to_pe_ratio,
-                 pe_to_ref_population_ratio,
+                 pe_to_inj_population_ratio,
                  pe_samples,
                  pastro_ref,
                  injections_summary,
@@ -22,7 +22,7 @@ class PopulationLikelihood(utils.JSONMixin):
         ref_population_to_pe_ratio: PriorRatio
             reference_population_model / pe_prior
 
-        pe_to_ref_population_ratio: PriorRatio
+        pe_to_inj_population_ratio: PriorRatio
             pe_prior / injection_prior
 
         pe_samples: list of pandas.DataFrame, of length `n_events`.
@@ -42,7 +42,7 @@ class PopulationLikelihood(utils.JSONMixin):
         """
         self.population_to_pe_ratio = population_to_pe_ratio
         self.ref_population_to_pe_ratio = ref_population_to_pe_ratio
-        self.pe_to_ref_population_ratio = pe_to_ref_population_ratio
+        self.pe_to_inj_population_ratio = pe_to_inj_population_ratio
         self.pe_samples = pe_samples
         self.pastro_ref = pastro_ref
         self.n_inj = injections_summary['Ninj']
@@ -51,13 +51,16 @@ class PopulationLikelihood(utils.JSONMixin):
 
         self.params = self.population_to_pe_ratio.hyperparams + ['rate']
 
+        #preprocess injection and events pe samples
+        
+        
         self._ln_w_denom_arr = self._compute_ln_avg_prior_ratios(
             self.ref_population_to_pe_ratio)
 
-        self._pe_to_ref_population_ratio_lnprior_arr \
-            = pe_to_ref_population_ratio.lnprior_ratio(
+        self._pe_to_inj_population_ratio_lnprior_arr \
+            = pe_to_inj_population_ratio.lnprior_ratio(
                 **self.recovered_injections[
-                    self.pe_to_ref_population_ratio.params])
+                    self.pe_to_inj_population_ratio.params])
 
     def lnlike(self, hyperparams_dic):
         """Log of the population likelihood."""
@@ -85,7 +88,7 @@ class PopulationLikelihood(utils.JSONMixin):
             np.exp(self._compute_ln_prior_ratio(self.recovered_injections,
                                                 self.population_to_pe_ratio,
                                                 **shape_hyperparams)
-                   + self._pe_to_ref_population_ratio_lnprior_arr))
+                   + self._pe_to_inj_population_ratio_lnprior_arr))
         return vt
 
     def _compute_ln_avg_prior_ratios(self, prior_ratio, **shape_hyperparams):

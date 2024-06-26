@@ -12,7 +12,8 @@ class PopulationLikelihood(utils.JSONMixin):
                  pe_samples,
                  pastro_ref,
                  injections_summary,
-                 rate0):
+                 rate0,
+                 injections_sampler = 'Dynesty'):
         """
         Parameters
         ----------
@@ -32,13 +33,19 @@ class PopulationLikelihood(utils.JSONMixin):
             Must be in the same order as `pe_samples`.
 
         injections_summary: dict
-            Must contain keys for ('Ninj', 'recovered_injections')
+            Must contain keys for ('Ninj', 'recovered_injections', Z, Tobs)
             # TODO either define an InjectionsSummary class to enforce
             this, or make `Ninj` and `recovered_injections` parameters
             to this class
 
         rate0: float
             Fiducial merger rate (inverse Gpc^3 yr).
+
+        injections_sampler: str
+            Name of sampler used to generate injections
+            if 'Dynesty', then set importance_weights
+            to samples['weights'], else importance_weights
+            are all 1. Required for vt computation.
         """
         self.population_to_pe_ratio = population_to_pe_ratio
         self.ref_population_to_pe_ratio = ref_population_to_pe_ratio
@@ -47,12 +54,16 @@ class PopulationLikelihood(utils.JSONMixin):
         self.pastro_ref = pastro_ref
         self.n_inj = injections_summary['Ninj']
         self.recovered_injections = injections_summary['recovered_injections']
+        self.z = injections_summary['Z']
+        self.t_obs = injections_summary['T_obs']
         self.rate0 = rate0
+        
+        if injections_sampler == 'Dynesty':
+            self.importance_weights = self.recovered_injections['weights']
+        else:
+            self.importance_weights = np.ones(len(self.recovered_injections))
 
         self.params = self.population_to_pe_ratio.hyperparams + ['rate']
-
-        #preprocess injection and events pe samples
-        
         
         self._ln_w_denom_arr = self._compute_ln_avg_prior_ratios(
             self.ref_population_to_pe_ratio)
@@ -84,8 +95,9 @@ class PopulationLikelihood(utils.JSONMixin):
         return w_arr
 
     def _compute_vt(self, shape_hyperparams):
-        vt = 1 / self.n_inj * np.sum(
-            np.exp(self._compute_ln_prior_ratio(self.recovered_injections,
+        vt = (self.z * self.t_obs) / self.n_inj * np.sum(
+            self.importance_weights *
+                np.exp(self._compute_ln_prior_ratio(self.recovered_injections,
                                                 self.population_to_pe_ratio,
                                                 **shape_hyperparams)
                    + self._pe_to_inj_population_ratio_lnprior_arr))

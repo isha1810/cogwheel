@@ -10,10 +10,11 @@ class PopulationLikelihood(utils.JSONMixin):
                  ref_population_to_pe_ratio,
                  pe_to_inj_population_ratio,
                  pe_samples,
-                 pastro_ref,
                  injections_summary,
-                 rate0,
-                 injections_sampler = 'Dynesty'):
+                 rate0):
+                 # , pastro_ref,
+                 # injections_summary,
+                 # injections_sampler = 'Dynesty'):
         """
         Parameters
         ----------
@@ -32,11 +33,8 @@ class PopulationLikelihood(utils.JSONMixin):
         pastro_ref: list of floats, of length `n_events`
             Must be in the same order as `pe_samples`.
 
-        injections_summary: dict
-            Must contain keys for ('Ninj', 'recovered_injections', Z, Tobs)
-            # TODO either define an InjectionsSummary class to enforce
-            this, or make `Ninj` and `recovered_injections` parameters
-            to this class
+        injections_summary: InjectionsSummary
+            Information from injections 
 
         rate0: float
             Fiducial merger rate (inverse Gpc^3 yr).
@@ -51,15 +49,18 @@ class PopulationLikelihood(utils.JSONMixin):
         self.ref_population_to_pe_ratio = ref_population_to_pe_ratio
         self.pe_to_inj_population_ratio = pe_to_inj_population_ratio
         self.pe_samples = pe_samples
-        self.pastro_ref = pastro_ref
-        self.n_inj = injections_summary['Ninj']
-        self.recovered_injections = injections_summary['recovered_injections']
-        self.z = injections_summary['Z']
-        self.t_obs = injections_summary['T_obs']
         self.rate0 = rate0
+
+        # self.injections_summary = injections_summary
+        self.recovered_injections = injections_summary.recovered_injections
+        self.pastro_ref = injections_summary.pastro_ref
+        self.n_inj = injections_summary.n_inj
+        self.z = injections_summary.z
+        self.t_obs = injections_summary.t_obs
         
-        if injections_sampler == 'Dynesty':
-            self.importance_weights = self.recovered_injections['weights']
+        
+        if injections_summary.sampler_name == 'Dynesty':
+            self.importance_weights = self.recovered_injections['importance_weights']
         else:
             self.importance_weights = np.ones(len(self.recovered_injections))
 

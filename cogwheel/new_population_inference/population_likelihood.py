@@ -30,11 +30,8 @@ class PopulationLikelihood(utils.JSONMixin):
         pe_samples: list of pandas.DataFrame, of length `n_events`.
             Posterior samples for the events under analysis.
 
-        pastro_ref: list of floats, of length `n_events`
-            Must be in the same order as `pe_samples`.
-
         injections_summary: InjectionsSummary
-            Information from injections 
+            Injections Information 
 
         rate0: float
             Fiducial merger rate (inverse Gpc^3 yr).
@@ -57,7 +54,13 @@ class PopulationLikelihood(utils.JSONMixin):
         self.n_inj = injections_summary.n_inj
         self.z = injections_summary.z
         self.t_obs = injections_summary.t_obs
-        
+
+        #TODO: better error handling -> store pastro_ref with event names
+        # and load pe_samples with event_names to ensure correct pastro_ref 
+        # is used with corresponding pe_samples. Currently assuming pastro_ref
+        # and pe_samples are in the same order.
+        assert len(self.pastro_ref) == len(pe_samples)
+                # "pastro_ref and pe_samples must be the same length")
         
         if injections_summary.sampler_name == 'Dynesty':
             self.importance_weights = self.recovered_injections['importance_weights']

@@ -2,7 +2,7 @@
 from scipy import stats
 import numpy as np
 
-from base_prior_ratio import PriorRatio
+from .base_prior_ratio import PriorRatio
 from cogwheel.cosmology import z_of_d_luminosity, comoving_to_luminosity_diff_vt_ratio
 
 

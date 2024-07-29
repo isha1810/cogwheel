@@ -8,12 +8,12 @@ import os
 import pandas as pd
 
 # These are the directories where latest injections are for O3a and O3b
-INJECTION_ROOT_DIRS = {'O3a': '/home/isha/O3a_data/injections/O3a',
-                 'O3b': '/home/isha/O3a_data/injections/O3b'}
-SUMMARY_FILE_PATHS = {'O3a': os.path.join(INJECTION_ROOT_DIRS['O3a'], "injection_loader",
-                                "injections_summary.hdf5"),
-                     'O3b': os.path.join(INJECTION_ROOT_DIRS['O3b'], "injection_loader",
-                                "injections_summary.hdf5")}
+# INJECTION_ROOT_DIRS = {'O3a': '/home/isha/O3a_data/injections/O3a',
+#                  'O3b': '/home/isha/O3a_data/injections/O3b'}
+SUMMARY_FILE_PATHS = {'O3a': os.path.join('data',
+                                "injections_summary_IFAR_threshold_applied.hdf5")}
+                     # 'O3b': os.path.join(INJECTION_ROOT_DIRS['O3b'], "injection_loader",
+                     #            "injections_summary.hdf5")}
 Z = 2.15 # Gpc^3 # same for O3a, O3b
 
 class InjectionsSummary:

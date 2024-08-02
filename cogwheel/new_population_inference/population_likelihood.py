@@ -55,8 +55,8 @@ class PopulationLikelihood(utils.JSONMixin):
 
         if "weights" in injections_summary.recovered_injections.keys():
             injections_summary.recovered_injections['log_weights'] = (
-                np.log(injections_summary.recovered_injections['weights']-
-                      np.log(np.sum(injections_summary.recovered_injections['weights']))))
+                np.log(injections_summary.recovered_injections['weights'])-
+                      np.log(np.sum(injections_summary.recovered_injections['weights'])))
         else:
             injections_summary.recovered_injections['log_weights'] = np.zeros(
                 len(injections_summary.recovered_injections))

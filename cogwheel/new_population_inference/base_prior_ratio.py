@@ -57,6 +57,20 @@ class PriorRatio(ABC):
         """List of population-parameter names."""
         return []
 
+    @classmethod
+    @property
+    @abstractmethod
+    def base_quantities(cls):
+        """List of event-parameters names required to compute 'derived_quantities'."""
+        return []
+
+    @classmethod
+    @property
+    @abstractmethod
+    def derived_quantities(cls):
+        """List of event quantities to compute before sampling."""
+        return []
+
     @abstractmethod
     def lnprior_ratio(self, *args, **kwargs):
         """
@@ -89,7 +103,7 @@ class PriorRatio(ABC):
         super().__init_subclass__()
 
         func = cls.lnprior_ratio
-        params = cls.params + cls.hyperparams
+        params = cls.params + cls.derived_quantities + cls.hyperparams
         if not has_compatible_signature(func, params):
             raise PriorRatioError(
                     f'Expected signature of `{func.__qualname__}` to accept '
@@ -125,6 +139,22 @@ class CombinedPriorRatio(PriorRatio):
         return [par
                 for prior_ratio_class in cls.prior_ratio_classes
                 for par in prior_ratio_class.hyperparams]
+        
+    @utils.ClassProperty
+    def base_quantities(cls):
+        """List of event-parameters names required to compute 'derived_quantities'."""
+        unique_base_quantities = set([par
+                for prior_ratio_class in cls.prior_ratio_classes
+                for par in prior_ratio_class.base_quantities])
+        return list(unique_base_quantities)
+    
+    @utils.ClassProperty
+    def derived_quantities(cls):
+        """List of event quantities to compute before sampling."""
+        unique_derived_quantities = set([par
+                for prior_ratio_class in cls.prior_ratio_classes
+                for par in prior_ratio_class.derived_quantities])
+        return list(unique_derived_quantities)
 
     def __init_subclass__(cls):
         """

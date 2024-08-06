@@ -68,7 +68,7 @@ class PriorRatio(ABC):
     @property
     @abstractmethod
     def derived_quantities(cls):
-        """List of event quantities to compute before sampling."""
+        """List of event quantities to compute. These are functions of base_quantities"""
         return []
 
     @abstractmethod
@@ -150,7 +150,7 @@ class CombinedPriorRatio(PriorRatio):
     
     @utils.ClassProperty
     def derived_quantities(cls):
-        """List of event quantities to compute before sampling."""
+        """List of event quantities to compute. These are functions of base_quantities"""
         unique_derived_quantities = set([par
                 for prior_ratio_class in cls.prior_ratio_classes
                 for par in prior_ratio_class.derived_quantities])
@@ -176,7 +176,7 @@ class CombinedPriorRatio(PriorRatio):
                                            inspect.Parameter.POSITIONAL_ONLY)
         parameters = [self_parameter] + [
             inspect.Parameter(par, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-            for par in cls.params + cls.hyperparams]
+            for par in cls.params + cls.derived_quantities + cls.hyperparams]
         cls.lnprior_ratio.__signature__ = inspect.signature(
             cls.lnprior_ratio).replace(parameters=parameters)
         super().__init_subclass__()
@@ -211,7 +211,7 @@ class CombinedPriorRatio(PriorRatio):
 
         lnp_ratio = 0.0
         for prior_ratio in self.prior_ratios:
-            keys = prior_ratio.params + prior_ratio.hyperparams
+            keys = prior_ratio.params + prior_ratio.derived_quantities + prior_ratio.hyperparams
             kwargs_sub = {key: kwargs[key] for key in keys}
             lnp_ratio += prior_ratio.lnprior_ratio(**kwargs_sub)
 

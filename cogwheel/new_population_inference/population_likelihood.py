@@ -12,9 +12,6 @@ class PopulationLikelihood(utils.JSONMixin):
                  pe_samples,
                  injections_summary,
                  rate0):
-                 # , pastro_ref,
-                 # injections_summary,
-                 # injections_sampler = 'Dynesty'):
         """
         Parameters
         ----------
@@ -35,12 +32,6 @@ class PopulationLikelihood(utils.JSONMixin):
 
         rate0: float
             Fiducial merger rate (inverse Gpc^3 yr).
-
-        injections_sampler: str
-            Name of sampler used to generate injections
-            if 'Dynesty', then set importance_weights
-            to samples['weights'], else importance_weights
-            are all 1. Required for vt computation.
         """
         self.population_to_pe_ratio = population_to_pe_ratio
         self.ref_population_to_pe_ratio = ref_population_to_pe_ratio
@@ -48,30 +39,27 @@ class PopulationLikelihood(utils.JSONMixin):
 
         for samples in pe_samples:
             if "weights" in samples.keys():
-                samples['log_weights'] = (np.log(samples['weights'])-
-                                         np.log(np.sum(samples['weights'])))
+                samples['log_weights'] = (np.log(samples['weights']) - 
+                                          np.log(np.sum(samples['weights'])))
             else:
-                samples['log_weights'] = np.zeros(len(samples))
+                samples['log_weights'] = -np.log(len(samples))*np.ones(len(samples))
 
         if "weights" in injections_summary.recovered_injections.keys():
             injections_summary.recovered_injections['log_weights'] = (
-                np.log(injections_summary.recovered_injections['weights'])-
-                      np.log(np.sum(injections_summary.recovered_injections['weights'])))
+                np.log(injections_summary.recovered_injections['weights']))
         else:
-            injections_summary.recovered_injections['log_weights'] = np.zeros(
+            injections_summary.recovered_injections['log_weights'] = -np.log(self.n_inj)*np.ones(
                 len(injections_summary.recovered_injections))
 
         # Add columns of derived_quantites to injections samples and PE samples
         injections_summary.recovered_injections \
             = self._add_auxiliary_quantities_to_injections_samples(
                 injections_summary.recovered_injections)
-        
         pe_samples = self._add_auxiliary_quantities_to_pe_samples(
             pe_samples)
 
         self.pe_samples = pe_samples
         self.rate0 = rate0
-        # self.injections_summary = injections_summary
         self.recovered_injections = injections_summary.recovered_injections
         self.pastro_ref = injections_summary.pastro_ref
         self.n_inj = injections_summary.n_inj
@@ -82,7 +70,6 @@ class PopulationLikelihood(utils.JSONMixin):
         # and load pe_samples with event_names to ensure correct pastro_ref 
         # is used with corresponding pe_samples. Currently assuming pastro_ref
         # and pe_samples are in the same order.
-
         assert len(self.pastro_ref) == len(self.pe_samples)
                 # "pastro_ref and pe_samples must be the same length")
 
@@ -120,7 +107,7 @@ class PopulationLikelihood(utils.JSONMixin):
         return w_arr
 
     def _compute_vt(self, shape_hyperparams):
-        vt = (self.z * self.t_obs) / self.n_inj * np.sum(
+        vt = (self.z * self.t_obs) * np.sum(
             np.exp(self._compute_ln_prior_ratio(self.recovered_injections,
                                                 self.population_to_pe_ratio,
                                                 **shape_hyperparams)
@@ -143,7 +130,7 @@ class PopulationLikelihood(utils.JSONMixin):
                      + samples['log_weights'])
             for samples in self.pe_samples])
 
-        return logsum_prior_ratios - np.log(n_samples)
+        return logsum_prior_ratios 
 
     def _compute_ln_prior_ratio(
             self, samples, prior_ratio, **shape_hyperparams):

@@ -11,14 +11,14 @@ import pandas as pd
 # INJECTION_ROOT_DIRS = {'O3a': '/home/isha/O3a_data/injections/O3a',
 #                  'O3b': '/home/isha/O3a_data/injections/O3b'}
 SUMMARY_FILE_PATHS = {'O3a': os.path.join('data',
-                                "injections_summary_IFAR_threshold_applied.hdf5")}
+                                "injections_summary_with_IFAR_column.hdf5")}
                      # 'O3b': os.path.join(INJECTION_ROOT_DIRS['O3b'], "injection_loader",
                      #            "injections_summary.hdf5")}
 Z = 2.15 # Gpc^3 # same for O3a, O3b
 
 class InjectionsSummary:
     def __init__(self, n_inj, t_obs, pastro_ref, recovered_injections,
-                 obs_run='O3a', sampler_name="Dynesty"):
+                 obs_run='O3a', ifar_threshold=0.5):
         """
         Parameters
         ----------
@@ -29,34 +29,32 @@ class InjectionsSummary:
             duration of observing run (in yrs)
 
         pastro_ref: array of floats
-            pastro of events at reference population
+            events pastros computed for the
+            reference population
 
         recovered_injections: pandas.DataFrame 
-            parameters of injections recovered in injection campaign
+            parameters of injections recovered by search
+            in injection campaign
 
         obs_run: str
-            'O3a' or 'O3b'
+            Example: 'O3a' or 'O3b'
 
-        sampler_name: str
-            Name of sampler used to generate injections. For
-            example: 'Dynesty', 'PyMultinest'
+        ifar_threshold: float
+            threshold on ifar, same as the
+            threshold used on events
+
         """
         self.n_inj = n_inj
-        self.recovered_injections = recovered_injections
+        # self.recovered_injections = recovered_injections
         self.pastro_ref = pastro_ref
         self.t_obs = t_obs
-        self.sampler_name = sampler_name
         self.z = Z
 
-        if sampler_name == "Dynesty":
-            try:
-                weights = recovered_injections['weights']
-                recovered_injections['importance_weights'] = weights/np.sum(weights)
-            except KeyError:
-                print(f"'weights' column was not found in recovered_injections")
+        mask_ifar_threshold = recovered_injections['ifar']>=ifar_threshold
+        self.recovered_injections = recovered_injections[mask_ifar_threshold]
 
     @classmethod
-    def from_hdf5(cls, file_path=None, obs_run="O3a", sampler_name="Dynesty"):
+    def from_hdf5(cls, file_path=None, obs_run="O3a"):
         '''
         ....
         '''
@@ -76,6 +74,5 @@ class InjectionsSummary:
             print(f"{file_name} does not contain all the information needed to create this object")
 
         return cls(n_inj=n_inj_h5, t_obs=t_obs_h5, pastro_ref=pastro_ref_h5,
-                   recovered_injections=recovered_injections_h5, obs_run=obs_run,
-                   sampler_name=sampler_name)
+                   recovered_injections=recovered_injections_h5, obs_run=obs_run)
     

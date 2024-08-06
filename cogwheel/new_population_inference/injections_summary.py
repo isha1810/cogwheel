@@ -50,8 +50,8 @@ class InjectionsSummary:
         self.t_obs = t_obs
         self.z = Z
 
-        mask_ifar_threshold = recovered_injections['ifar']>=ifar_threshold
-        self.recovered_injections = recovered_injections[mask_ifar_threshold]
+        mask_ifar_threshold = np.where(recovered_injections['ifar']>=ifar_threshold)[0]
+        self.recovered_injections = recovered_injections.iloc[mask_ifar_threshold]
 
     @classmethod
     def from_hdf5(cls, file_path=None, obs_run="O3a"):

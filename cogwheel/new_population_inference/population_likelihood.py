@@ -157,14 +157,10 @@ class PopulationLikelihood(utils.JSONMixin):
         pe_to_inj_aux_quantities \
             = self.pe_to_inj_population_ratio.compute_auxiliary_quantities(
                 **injection_samples[self.pe_to_inj_population_ratio.base_quantities])
-        
-        # only add unique columns to dataframe
-        overlapping_columns = pop_to_pe_aux_quantities.columns.intersection(
-            pe_to_inj_aux_quantities.columns)
-        pe_to_inj_aux_quantities_unique = pe_to_inj_aux_quantities.drop(
-            columns=overlapping_columns, errors='ignore')
-        unique_aux_quantities = pop_to_pe_aux_quantities.join(pe_to_inj_aux_quantities_unique, how='outer')
-        injection_samples_modified = injection_samples.join(unique_aux_quantities, how='outer')
+
+        injection_samples_modified = injection_samples.copy()
+        utils.update_dataframe(injection_samples_modified, pop_to_pe_aux_quantities)
+        utils.update_dataframe(injection_samples_modified, pe_to_inj_aux_quantities)
         
         return injection_samples_modified
 

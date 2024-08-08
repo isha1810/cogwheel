@@ -208,20 +208,20 @@ class GaussianChieffToIntrinsicVolumetricSpinPrior(PriorRatio):
     numerator = 'GaussianChieff'
     denominator = 'IntrinsicVolumetricSpinPrior'
     params = ['m1_source', 'chieff', 'q', 's1z', 's2z']
-    base_quantities = ['q', 'chieff','d_luminosity']
-    derived_quantities = ['s1z_min', 's1z_max', 'z']
+    base_quantities = ['d_luminosity']
+    derived_quantities = ['z', 'comoving_to_luminosity']
     hyperparams = ['chieff_mean', 'chieff_std']
 
-    def compute_auxiliary_quantities(self, q, chieff, d_luminosity):
+    def compute_auxiliary_quantities(self, d_luminosity):
         aux_quantities_dataframe = pd.DataFrame()
-        aux_quantities_dataframe['s1z_min'] = np.maximum(self._compute_s1z(chieff, q, 1), -1)
-        aux_quantities_dataframe['s1z_max'] = np.minimum(self._compute_s1z(chieff, q, -1), 1)
         aux_quantities_dataframe['z'] = z_of_d_luminosity(d_luminosity)
+        aux_quantities_dataframe['comoving_to_luminosity'] \
+            = comoving_to_luminosity_diff_vt_ratio(d_luminosity)
         
         return aux_quantities_dataframe
 
     def lnprior_ratio(self, m1_source, chieff, q, s1z, s2z, 
-                      s1z_min, s1z_max, z, chieff_mean, chieff_std):
+                      z, comoving_to_luminosity, chieff_mean, chieff_std):
         """
         Return log of the ratio between a (truncated) Gaussian prior on chieff
         and the IAS (flat) chieff prior.
@@ -251,7 +251,10 @@ class GaussianChieffToIntrinsicVolumetricSpinPrior(PriorRatio):
                                                      loc=chieff_mean,
                                                      scale=chieff_std)
         mmin = 1.
-        mass_lnp = (np.log(300/97) -2.*np.log(m1_source))
+        s1z_min = -1.
+        s1z_max = 1.
+        mass_lnp = (np.log(300/97) -2.*np.log(m1_source)
+                   + np.log(comoving_to_luminosity))
         pop_lnp = gaussian_chieff_lnp + mass_lnp
         
         ivs_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
@@ -262,10 +265,6 @@ class GaussianChieffToIntrinsicVolumetricSpinPrior(PriorRatio):
         ivs_lnp = ivs_mass_lnp + ivs_chieff_lnp
         
         return pop_lnp - ivs_lnp
-
-    @staticmethod
-    def _compute_s1z(chieff, q, s2z):
-        return (1+q)*chieff - q*s2z
     
 
 class InjectionPriorToIntrinsicVolumetricSpinPrior(PriorRatio):
@@ -275,26 +274,26 @@ class InjectionPriorToIntrinsicVolumetricSpinPrior(PriorRatio):
     numerator = 'InjectionPrior'
     denominator = 'IntrinsicVolumetricSpinPrior'
     params = ['m1_source', 'q', 's1z', 's2z']
-    base_quantities = [ 'q', 'chieff','d_luminosity']
-    derived_quantities = ['s1z_min', 's1z_max', 'z', 'comoving_to_luminosity']
+    base_quantities = ['d_luminosity']
+    derived_quantities = ['z', 'comoving_to_luminosity']
     hyperparams = []
 
-    def compute_auxiliary_quantities(self, q, chieff, d_luminosity):
+    def compute_auxiliary_quantities(self, d_luminosity):
         aux_quantities_dataframe = pd.DataFrame()
-        aux_quantities_dataframe['s1z_min'] = np.maximum(self._compute_s1z(chieff, q, 1), -1)
-        aux_quantities_dataframe['s1z_max'] = np.minimum(self._compute_s1z(chieff, q, -1), 1)
         aux_quantities_dataframe['z'] = z_of_d_luminosity(d_luminosity)
         aux_quantities_dataframe['comoving_to_luminosity'] \
             = comoving_to_luminosity_diff_vt_ratio(d_luminosity)
         
         return aux_quantities_dataframe
     
-    def lnprior_ratio(self, m1_source, q, s1z, s2z, s1z_min, s1z_max, z, comoving_to_luminosity):
+    def lnprior_ratio(self, m1_source, q, s1z, s2z, z, comoving_to_luminosity):
         """
         ...
         """
         alpha=2.
         mmin=1.
+        s1z_min = -1.
+        s1z_max = 1.
         injection_mass_distance_jacobian = (- np.log(1-(mmin/m1_source)) 
                                             + np.log(comoving_to_luminosity))
         injection_mass_distance_lnp = (np.log(300/97) - alpha*np.log(m1_source) 
@@ -309,11 +308,7 @@ class InjectionPriorToIntrinsicVolumetricSpinPrior(PriorRatio):
                           + ivs_chieff_jacobian)
         ivs_lnp = ivs_mass_lnp + ivs_chieff_lnp
         
-        return (injection_lnp - ivs_lnp) 
-
-    @staticmethod
-    def _compute_s1z(chieff, q, s2z):
-        return (1+q)*chieff - q*s2z
+        return (injection_lnp - ivs_lnp)
 
 class IntrinsicVolumetricSpinPriorToInjectionPrior(PriorRatio):
     """
@@ -322,26 +317,26 @@ class IntrinsicVolumetricSpinPriorToInjectionPrior(PriorRatio):
     numerator = 'IntrinsicVolumetricSpinPrior'
     denominator = 'InjectionPrior'
     params = ['m1_source', 'q', 's1z', 's2z']
-    base_quantities = ['q', 'chieff','d_luminosity']
-    derived_quantities = ['s1z_min', 's1z_max', 'z', 'comoving_to_luminosity']
+    base_quantities = ['d_luminosity']
+    derived_quantities = ['z', 'comoving_to_luminosity']
     hyperparams = []
 
-    def compute_auxiliary_quantities(self,q, chieff, d_luminosity):
+    def compute_auxiliary_quantities(self, d_luminosity):
         aux_quantities_dataframe = pd.DataFrame()
-        aux_quantities_dataframe['s1z_min'] = np.maximum(self._compute_s1z(chieff, q, 1), -1)
-        aux_quantities_dataframe['s1z_max'] = np.minimum(self._compute_s1z(chieff, q, -1), 1)
         aux_quantities_dataframe['z'] = z_of_d_luminosity(d_luminosity)
         aux_quantities_dataframe['comoving_to_luminosity'] \
             = comoving_to_luminosity_diff_vt_ratio(d_luminosity)
         
         return aux_quantities_dataframe
     
-    def lnprior_ratio(self, m1_source, q, s1z, s2z, s1z_min, s1z_max, z, comoving_to_luminosity):
+    def lnprior_ratio(self, m1_source, q, s1z, s2z, z, comoving_to_luminosity):
         """
         ...
         """
         alpha=2.
         mmin=1.
+        s1z_min = -1.
+        s1z_max = 1.
         injection_mass_distance_jacobian = (- np.log(1-(mmin/m1_source)) 
                                             + np.log(comoving_to_luminosity))
         injection_mass_distance_lnp = (np.log(300/97) - alpha*np.log(m1_source) 
@@ -356,8 +351,4 @@ class IntrinsicVolumetricSpinPriorToInjectionPrior(PriorRatio):
                           + ivs_chieff_jacobian)
         ivs_lnp = ivs_mass_lnp + ivs_chieff_lnp
         
-        return (ivs_lnp - injection_lnp) 
-
-    @staticmethod
-    def _compute_s1z(chieff, q, s2z):
-        return (1+q)*chieff - q*s2z
+        return (ivs_lnp - injection_lnp)

@@ -6,24 +6,24 @@ import pandas as pd
 # sys.path.append('../cogwheel/new_population_inference')
 
 from .base_prior_ratio import PriorRatio
-from cogwheel.cosmology import z_of_d_luminosity, comoving_to_luminosity_diff_vt_ratio
+from cogwheel.cosmology import (
+    z_of_d_luminosity,
+    comoving_to_luminosity_diff_vt_ratio)
 
 from cogwheel.prior import IdentityTransformMixin, Prior
 
 class GaussianCosThetaLSToVolumetricPriorRatio(PriorRatio):
     """
-    Ratio between a (truncated) Gaussian prior on cos(theta_LS) and the Volumetric
-    (flat) cos(theta_LS) prior.
+    Ratio between a (truncated) Gaussian prior on cos(theta_LS) and the
+    Volumetric (flat) cos(theta_LS) prior.
     """
     numerator = 'GaussianCosThetaLS'
     denominator = 'VolumetricPrior'
     params = ['cos_theta_ls', 'm1_source']
     hyperparams = ['cos_theta_ls_mean', 'cos_theta_ls_std']
 
-    # params = ['chieff', 'm1_source']
     base_quantities = ['d_luminosity']
     derived_quantities = ['z', 'comoving_to_luminosity']
-    # hyperparams = ['chieff_mean', 'chieff_std']
     
     def compute_auxiliary_quantities(self, d_luminosity):
         aux_quantities_dataframe = pd.DataFrame()
@@ -33,22 +33,25 @@ class GaussianCosThetaLSToVolumetricPriorRatio(PriorRatio):
         
         return aux_quantities_dataframe
     
-    def lnprior_ratio(self, cos_theta_ls, m1_source, z, comoving_to_luminosity, cos_theta_ls_mean, cos_theta_ls_std):
+    def lnprior_ratio(self, cos_theta_ls, m1_source, z,
+                      comoving_to_luminosity,
+                      cos_theta_ls_mean, cos_theta_ls_std):
         """
-        Return log of the ratio between a (truncated) Gaussian prior on cos_theta_ls
-        and the volumetric (flat) chieff prior.
+        Return log of the ratio between a (truncated) Gaussian prior on
+        cos_theta_ls and the volumetric (flat) cos_theta_ls prior.
 
         The Gaussian is truncated at (-1, 1).
 
         Parameters
         ----------
-        chieff: array of shape (n_samples,)
-            Effective spin posterior samples for an event.
+        cos_theta_ls: array of shape (n_samples,)
+            Angle between total spin and orbital angular momentum for
+            an event
 
-        chieff_mean: float
+        cos_theta_ls_mean: float
             Mean of the Gaussian (before truncation).
 
-        chieff_std: float
+        cos_theta_ls_std: float
             Standard deviation of the Gaussian (before truncation).
 
         Return
@@ -56,7 +59,8 @@ class GaussianCosThetaLSToVolumetricPriorRatio(PriorRatio):
         float array of shape (n_samples,)
         """
         cos_theta_ls_bounds = np.array([-1.0, 1.0])
-        a_transformed, b_transformed = (cos_theta_ls_bounds - cos_theta_ls_mean) / cos_theta_ls_std
+        a_transformed, b_transformed = (cos_theta_ls_bounds -
+                                        cos_theta_ls_mean) / cos_theta_ls_std
         gaussian_cos_theta_ls_lnp = stats.truncnorm.logpdf(x=cos_theta_ls,
                                                      a=a_transformed,
                                                      b=b_transformed,
@@ -70,7 +74,8 @@ class GaussianCosThetaLSToVolumetricPriorRatio(PriorRatio):
         volumetric_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
         volumetric_mass_lnp = volumetric_mass_jacobian
         
-        return gaussian_cos_theta_ls_lnp - volumetric_lnp + mass_lnp - volumetric_mass_lnp
+        return (gaussian_cos_theta_ls_lnp - volumetric_cos_theta_ls_lnp
+                + mass_lnp - volumetric_mass_lnp)
 
 class GaussianCosThetaLSHyperPrior(IdentityTransformMixin, Prior):
     standard_params = ['rate', 'cos_theta_ls_mean', 'cos_theta_ls_std']

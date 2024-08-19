@@ -3,7 +3,7 @@ from scipy import stats
 import numpy as np
 import pandas as pd
 # import sys
-# sys.path.append('../cogwheel/new_population_inference')
+# sys.path.append('../cogwheel/population_inference')
 
 from cogwheel.prior import IdentityTransformMixin, Prior
 from cogwheel.cosmology import (

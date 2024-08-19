@@ -4,12 +4,14 @@ from scipy import stats
 
 from .base_prior_ratio import PriorRatio
 from cogwheel.cosmology import z_of_d_luminosity, comoving_to_luminosity_diff_vt_ratio
+from cogwheel.prior import IdentityTransformMixin, Prior
+
 from .pop_utils import normalized_powerlaw_distribution #,normalized_truncated_gaussian_distribution
 
 
-class TruncatedMassModelToIntrinsicVolumetricSpinPrior(PriorRatio):
+class TruncatedMassModelToVolumetricPrior(PriorRatio):
     numerator = 'TruncatedMassModel'
-    denominator = 'IntrinsicVolumetricSpinPrior'
+    denominator = 'VolumetricPrior'
     params = ['m1_source','q']
     base_quantities = ['d_luminosity']
     derived_quantities = ['z', 'comoving_to_luminosity']
@@ -35,6 +37,13 @@ class TruncatedMassModelToIntrinsicVolumetricSpinPrior(PriorRatio):
 
         return pop_lnp - ivs_lnp
 
+class TruncatedMassModelHyperPrior(IdentityTransformMixin, Prior):
+    standard_params = ['rate', 'alpha', 'm_min', 'm_max', 'beta_q']
+    range_dic={'rate':(60, 200),'alpha':(-4, 6), 'm_min':(2,10), 'm_max':(50, 100), 'beta_q':(-4,6)}
+    def lnprior(self, rate, alpha, m_min, m_max, beta_q):
+        log_uniform_prior = - np.log(np.prod(self.cubesize))
+        log_jeffreys_prior = - 0.5*np.log(rate)
+        return log_uniform_prior + log_jeffreys_prior
 
 # class MassPowerLawPeakToIntrinsicVolumetricSpinPrior(PriorRatio):
 #     numerator = 'MassPowerLawPeak'

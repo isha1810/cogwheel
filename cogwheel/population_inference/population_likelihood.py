@@ -1,3 +1,4 @@
+import glob
 import numpy as np
 from scipy.special import logsumexp
 
@@ -10,6 +11,7 @@ class PopulationLikelihood(utils.JSONMixin):
                  ref_population_to_pe_ratio,
                  pe_to_inj_population_ratio,
                  pe_samples,
+                 list_of_evnames,
                  injections_summary,
                  rate0):
         """
@@ -26,6 +28,9 @@ class PopulationLikelihood(utils.JSONMixin):
 
         pe_samples: list of pandas.DataFrame, of length `n_events`.
             Posterior samples for the events under analysis.
+
+        list_of_evnames: list of str of length 'n_events'.
+            Names of events in the same order as pe_samples are provided
 
         injections_summary: InjectionsSummary
             Injections Information 
@@ -59,19 +64,13 @@ class PopulationLikelihood(utils.JSONMixin):
             pe_samples)
 
         self.pe_samples = pe_samples
+        self.list_of_evnames = list_of_evnames
         self.rate0 = rate0
         self.recovered_injections = injections_summary.recovered_injections
-        self.pastro_ref = injections_summary.pastro_ref
+        self.pastro_ref = self._get_pastro_array(injections_summary.pastro_ref)
         self.n_inj = injections_summary.n_inj
         self.z = injections_summary.z
         self.t_obs = injections_summary.t_obs
-
-        #TODO: store pastro_ref with event names
-        # and load pe_samples with event_names to ensure correct pastro_ref 
-        # is used with corresponding pe_samples. Currently assuming pastro_ref
-        # and pe_samples are in the same order.
-        assert len(self.pastro_ref) == len(self.pe_samples)
-                # "pastro_ref and pe_samples must be the same length")
 
         self.params = self.population_to_pe_ratio.hyperparams + ['rate']
         
@@ -191,6 +190,22 @@ class PopulationLikelihood(utils.JSONMixin):
             pe_samples_modified.append(samples_modified)
 
         return pe_samples_modified
+
+    def _get_pastro_array(self, pastro_ref_table):
+        """
+        Return
+        ------
+        Array of pastros in the same order as the pe_samples
+        """
+        pastro_list=[]
+        for evname in self.list_of_evnames:
+            try:
+                pastro = pastro_ref_table[evname]
+            except KeyError:
+                print(f"pastro for event {evname} not found, using pastro=0")
+                pastro = 0
+            pastro_list.append(pastro)
+        return np.array(pastro_list)
     
     def lnlike_and_metadata(self, par_dic):
         """

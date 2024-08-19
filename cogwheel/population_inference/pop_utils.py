@@ -17,13 +17,6 @@ def normalized_powerlaw_distribution(x, alpha, x_min, x_max):
     normed_f_x = A*f_x
     normed_f_x[mask_zero] = 1e-10
     
-    # if x<x_min or x>x_max:
-    #     normed_f_x = 0
-    # elif x>=x_min and x<=x_max:
-    #     A = (1+alpha)/(x_max**(1+alpha) - x_min**(1+alpha))
-    #     f_x = x**alpha
-    #     normed_f_x = A*f_x
-    
     return normed_f_x
 
 # def normalized_truncated_gaussian_distribution(x, mu, sigma, x_min, x_max):

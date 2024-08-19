@@ -68,7 +68,7 @@ class InjectionsSummary:
                 t_obs_h5 = f['TOBS'][()]
                 pastro_ref_group = f['pastro']
                 for evname, pastro in pastro_ref_group.items():
-                    pastro_ref_h5[evname] = pastro[()]
+                    pastro_ref_h5[evname] = pastro[:]
                 recovered_injections_group = f['recovered_injections']
                 for name, dataset in recovered_injections_group.items():
                     recovered_injections_h5[name] = dataset[:]

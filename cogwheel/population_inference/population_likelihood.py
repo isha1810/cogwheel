@@ -200,7 +200,7 @@ class PopulationLikelihood(utils.JSONMixin):
         pastro_list=[]
         for evname in self.list_of_evnames:
             try:
-                pastro = pastro_ref_table[evname]
+                pastro = pastro_ref_table[evname][0]
             except KeyError:
                 print(f"pastro for event {evname} not found, using pastro=0")
                 pastro = 0

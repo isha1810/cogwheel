@@ -106,7 +106,7 @@ class GaussianChieffToIASPriorRatio(PriorRatio):
         
     #     return gaussian_chieff_lnp - ias_chieff_lnp + mass_lnp - ias_mass_lnp
 
-class InjectionPriortoIASPriorRatio(PriorRatio):
+class InjectionPriorToIASPriorRatio(PriorRatio):
     '''
     Ratio between the Injection Prior and the 
     IASPrior used for PE. This is the ratio of the f's and has no
@@ -153,7 +153,7 @@ class InjectionPriortoIASPriorRatio(PriorRatio):
         
     #     return (injection_lnp - ias_mass_lnp)
 
-class IASPriortoInjectionPriorRatio(PriorRatio):
+class IASPriorToInjectionPriorRatio(PriorRatio):
     '''
     Ratio between the IASPrior and the Injection Prior
     (probability density).
@@ -201,12 +201,12 @@ class IASPriortoInjectionPriorRatio(PriorRatio):
 
 ## NEW PRIOR RATIOS ************************************************************
 
-class GaussianChieffToIntrinsicVolumetricSpinPrior(PriorRatio):
+class GaussianChieffToVolumetricPrior(PriorRatio):
     """
     ...
     """
     numerator = 'GaussianChieff'
-    denominator = 'IntrinsicVolumetricSpinPrior'
+    denominator = 'VolumetricPrior'
     params = ['m1_source', 'chieff', 'q', 's1z', 's2z']
     base_quantities = ['d_luminosity']
     derived_quantities = ['z', 'comoving_to_luminosity']
@@ -257,22 +257,22 @@ class GaussianChieffToIntrinsicVolumetricSpinPrior(PriorRatio):
                    + np.log(comoving_to_luminosity))
         pop_lnp = gaussian_chieff_lnp + mass_lnp
         
-        ivs_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
-        ivs_mass_lnp = ivs_mass_jacobian
-        ivs_chieff_jacobian = np.log((1+q)/q) + np.log(s1z_max - s1z_min)
-        ivs_chieff_lnp = (np.log(0.75 * (1-s1z**2)) + np.log(0.75 * (1-s2z**2))
-                          + ivs_chieff_jacobian)
-        ivs_lnp = ivs_mass_lnp + ivs_chieff_lnp
+        volumetric_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
+        volumetric_mass_lnp = volumetric_mass_jacobian
+        volumetric_chieff_jacobian = np.log((1+q)/q) + np.log(s1z_max - s1z_min)
+        volumetric_chieff_lnp = (np.log(0.75 * (1-s1z**2)) + np.log(0.75 * (1-s2z**2)) 
+                          + volumetric_chieff_jacobian)
+        volumetric_lnp = volumetric_mass_lnp + volumetric_chieff_lnp
         
-        return pop_lnp - ivs_lnp
+        return pop_lnp - volumetric_lnp
     
 
-class InjectionPriorToIntrinsicVolumetricSpinPrior(PriorRatio):
+class InjectionPriorToVolumetricPrior(PriorRatio):
     """
     ...
     """
     numerator = 'InjectionPrior'
-    denominator = 'IntrinsicVolumetricSpinPrior'
+    denominator = 'VolumetricPrior'
     params = ['m1_source', 'q', 's1z', 's2z']
     base_quantities = ['d_luminosity']
     derived_quantities = ['z', 'comoving_to_luminosity']
@@ -301,20 +301,20 @@ class InjectionPriorToIntrinsicVolumetricSpinPrior(PriorRatio):
         injection_chieff_lnp = np.log(0.5)
         injection_lnp = injection_mass_distance_lnp + injection_chieff_lnp
         
-        ivs_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
-        ivs_mass_lnp = ivs_mass_jacobian
-        ivs_chieff_jacobian = np.log((1+q)/q) + np.log(s1z_max - s1z_min)
-        ivs_chieff_lnp = (np.log(0.75 * (1-s1z**2)) + np.log(0.75 * (1-s2z**2)) 
-                          + ivs_chieff_jacobian)
-        ivs_lnp = ivs_mass_lnp + ivs_chieff_lnp
+        volumetric_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
+        volumetric_mass_lnp = volumetric_mass_jacobian
+        volumetric_chieff_jacobian = np.log((1+q)/q) + np.log(s1z_max - s1z_min)
+        volumetric_chieff_lnp = (np.log(0.75 * (1-s1z**2)) + np.log(0.75 * (1-s2z**2)) 
+                          + volumetric_chieff_jacobian)
+        volumetric_lnp = volumetric_mass_lnp + volumetric_chieff_lnp
         
-        return (injection_lnp - ivs_lnp)
+        return (injection_lnp - volumetric_lnp)
 
-class IntrinsicVolumetricSpinPriorToInjectionPrior(PriorRatio):
+class VolumetricPriorToInjectionPrior(PriorRatio):
     """
     ...
     """
-    numerator = 'IntrinsicVolumetricSpinPrior'
+    numerator = 'VolumetricPrior'
     denominator = 'InjectionPrior'
     params = ['m1_source', 'q', 's1z', 's2z']
     base_quantities = ['d_luminosity']
@@ -344,11 +344,11 @@ class IntrinsicVolumetricSpinPriorToInjectionPrior(PriorRatio):
         injection_chieff_lnp = np.log(0.5)
         injection_lnp = injection_mass_distance_lnp + injection_chieff_lnp
         
-        ivs_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
-        ivs_mass_lnp = ivs_mass_jacobian
-        ivs_chieff_jacobian = np.log((1+q)/q) + np.log(s1z_max - s1z_min)
-        ivs_chieff_lnp = (np.log(0.75 * (1-s1z**2)) + np.log(0.75 * (1-s2z**2)) 
-                          + ivs_chieff_jacobian)
-        ivs_lnp = ivs_mass_lnp + ivs_chieff_lnp
+        volumetric_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
+        volumetric_mass_lnp = volumetric_mass_jacobian
+        volumetric_chieff_jacobian = np.log((1+q)/q) + np.log(s1z_max - s1z_min)
+        volumetric_chieff_lnp = (np.log(0.75 * (1-s1z**2)) + np.log(0.75 * (1-s2z**2)) 
+                          + volumetric_chieff_jacobian)
+        volumetric_lnp = volumetric_mass_lnp + volumetric_chieff_lnp
         
-        return (ivs_lnp - injection_lnp)
+        return (volumetric_lnp - injection_lnp)

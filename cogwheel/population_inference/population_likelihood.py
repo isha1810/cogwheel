@@ -4,7 +4,6 @@ from scipy.special import logsumexp
 
 from cogwheel import utils
 
-
 class PopulationLikelihood(utils.JSONMixin):
     def __init__(self,
                  population_to_pe_ratio,
@@ -33,7 +32,7 @@ class PopulationLikelihood(utils.JSONMixin):
             Names of events in the same order as pe_samples are provided
 
         injections_summary: InjectionsSummary
-            Injections Information 
+            Injections Information
 
         rate0: float
             Fiducial merger rate (inverse Gpc^3 yr).
@@ -53,15 +52,13 @@ class PopulationLikelihood(utils.JSONMixin):
             injections_summary.recovered_injections['log_weights'] = (
                 np.log(injections_summary.recovered_injections['weights']))
         else:
-            injections_summary.recovered_injections['log_weights'] = -np.log(self.n_inj)*np.ones(
+            injections_summary.recovered_injections['log_weights'] = -np.log(injections_summary.n_inj)*np.ones(
                 len(injections_summary.recovered_injections))
 
         # Add columns of derived_quantites to injections samples and PE samples
-        injections_summary.recovered_injections \
-            = self._add_auxiliary_quantities_to_injections_samples(
+        self._add_auxiliary_quantities_to_injections_samples(
                 injections_summary.recovered_injections)
-        pe_samples = self._add_auxiliary_quantities_to_pe_samples(
-            pe_samples)
+        self._add_auxiliary_quantities_to_pe_samples(pe_samples)
 
         self.pe_samples = pe_samples
         self.list_of_evnames = list_of_evnames
@@ -106,12 +103,14 @@ class PopulationLikelihood(utils.JSONMixin):
         return w_arr
 
     def _compute_vt(self, shape_hyperparams):
-        vt = (self.z * self.t_obs) * np.sum(
-            np.exp(self._compute_ln_prior_ratio(self.recovered_injections,
+        log_vt = (np.log(self.z) + np.log(self.t_obs)
+                 + logsumexp(self._compute_ln_prior_ratio(self.recovered_injections,
                                                 self.population_to_pe_ratio,
                                                 **shape_hyperparams)
                    + self._pe_to_inj_population_ratio_lnprior_arr
                   + self.recovered_injections['log_weights']))
+        vt = np.exp(log_vt)
+        
         return vt
 
     def _compute_ln_avg_prior_ratios(self, prior_ratio, **shape_hyperparams):
@@ -150,18 +149,8 @@ class PopulationLikelihood(utils.JSONMixin):
         pandas.Dataframe with added columns corresponding to
         prior_ratio.derived_quantities
         """
-        pop_to_pe_aux_quantities \
-            = self.population_to_pe_ratio.compute_auxiliary_quantities(
-                **injection_samples[self.population_to_pe_ratio.base_quantities])
-        pe_to_inj_aux_quantities \
-            = self.pe_to_inj_population_ratio.compute_auxiliary_quantities(
-                **injection_samples[self.pe_to_inj_population_ratio.base_quantities])
-
-        injection_samples_modified = injection_samples.copy()
-        utils.update_dataframe(injection_samples_modified, pop_to_pe_aux_quantities)
-        utils.update_dataframe(injection_samples_modified, pe_to_inj_aux_quantities)
-        
-        return injection_samples_modified
+        self.population_to_pe_ratio.compute_auxiliary_quantities(injection_samples)
+        self.pe_to_inj_population_ratio.compute_auxiliary_quantities(injection_samples)
 
     def _add_auxiliary_quantities_to_pe_samples(
         self, pe_samples):
@@ -173,23 +162,8 @@ class PopulationLikelihood(utils.JSONMixin):
         """
         pe_samples_modified = []
         for samples in pe_samples:
-            pop_to_pe_aux_quantities \
-                = self.population_to_pe_ratio.compute_auxiliary_quantities(
-                    **samples[self.population_to_pe_ratio.base_quantities])
-            ref_to_pe_aux_quantities \
-                = self.ref_population_to_pe_ratio.compute_auxiliary_quantities(
-                    **samples[self.ref_population_to_pe_ratio.base_quantities])
-        
-            # only add unique columns to dataframe
-            overlapping_columns = pop_to_pe_aux_quantities.columns.intersection(
-                ref_to_pe_aux_quantities.columns)
-            ref_to_pe_aux_quantities_unique = ref_to_pe_aux_quantities.drop(
-                columns=overlapping_columns, errors='ignore')
-            unique_aux_quantities = pop_to_pe_aux_quantities.join(ref_to_pe_aux_quantities_unique, how='outer')
-            samples_modified = samples.join(unique_aux_quantities, how='outer')
-            pe_samples_modified.append(samples_modified)
-
-        return pe_samples_modified
+            self.population_to_pe_ratio.compute_auxiliary_quantities(samples)
+            self.ref_population_to_pe_ratio.compute_auxiliary_quantities(samples)
 
     def _get_pastro_array(self, pastro_ref_table):
         """

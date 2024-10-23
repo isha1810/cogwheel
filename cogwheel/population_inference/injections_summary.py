@@ -14,11 +14,13 @@ SUMMARY_FILE_PATHS = {'O3a': os.path.join('data',
                                 "injections_summary_pastro_added.hdf5")}
                      # 'O3b': os.path.join(INJECTION_ROOT_DIRS['O3b'], "injection_loader",
                      #            "injections_summary.hdf5")}
-Z = 2.15 # Gpc^3 # same for O3a, O3b
+Z = 2.15 # 2.1455 Gpc^3 # same for O3a, O3b
+# Z_lvc = # Gpc^3
 
 class InjectionsSummary:
     def __init__(self, n_inj, t_obs, pastro_ref, recovered_injections,
-                 obs_run='O3a', ifar_threshold=0.5):
+                 obs_run='O3a', ifar_threshold=1., using_lvc_injections=False, 
+                 ifar_column_name='ifar', z=Z):
         """
         Parameters
         ----------
@@ -43,18 +45,29 @@ class InjectionsSummary:
             threshold on ifar, same as the
             threshold used on events
 
+        ifar_column_name: str
+            ...
+
         """
         self.n_inj = n_inj
-        # self.recovered_injections = recovered_injections
         self.pastro_ref = pastro_ref
         self.t_obs = t_obs
-        self.z = Z
+        self.z = z
 
-        mask_ifar_threshold = np.where(recovered_injections['ifar']>=ifar_threshold)[0]
-        self.recovered_injections = recovered_injections.iloc[mask_ifar_threshold]
+        if using_lvc_injections:
+            mask_ifar_ge_one = np.logical_or.reduce((recovered_injections['ifar_gstlal']>=ifar_threshold, 
+                                                recovered_injections['ifar_pycbc_bbh']>=ifar_threshold,
+                                                recovered_injections['ifar_pycbc_hyperbank']>=ifar_threshold))
+            mask_ifar_ge_one_indices = np.where(mask_ifar_ge_one)[0]
+            self.recovered_injections = recovered_injections.iloc[mask_ifar_ge_one_indices].copy()
+            self.recovered_injections.reset_index(drop=True, inplace=True)
+        else:
+            mask_ifar_threshold = np.where(recovered_injections[ifar_column_name]>=ifar_threshold)[0]
+            self.recovered_injections = recovered_injections.iloc[mask_ifar_threshold].copy()
+            self.recovered_injections.reset_index(drop=True, inplace=True)
 
     @classmethod
-    def from_hdf5(cls, file_path=None, obs_run="O3a"):
+    def from_hdf5(cls, file_path=None, obs_run="O3a", ifar_threshold=0.5, z=Z):
         '''
         ....
         '''
@@ -77,5 +90,6 @@ class InjectionsSummary:
             print(f"{file_name} does not contain all the information needed to create this object")
 
         return cls(n_inj=n_inj_h5, t_obs=t_obs_h5, pastro_ref=pastro_ref_h5,
-                   recovered_injections=recovered_injections_h5, obs_run=obs_run)
+                   recovered_injections=recovered_injections_h5, obs_run=obs_run, 
+                   ifar_threshold=ifar_threshold, z=z)
     

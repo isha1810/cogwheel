@@ -159,7 +159,7 @@ class UniformCosThetaLSMeanHyperPrior(
     """
     range_dic={'cos_theta_ls_mean':(-1, 1)}
 
-class FixedUniformPercentageFlatFracPrior(FixedPrior):
+class FixedUniformPercentageIsotropicFracPrior(FixedPrior):
     """
     Gives the hyperprior for a gaussian + uniform distribution of
     cos(theta_LS) for a fixed proportion of the flat distribution
@@ -167,7 +167,7 @@ class FixedUniformPercentageFlatFracPrior(FixedPrior):
     """
     standard_par_dic = {'isotropic_prior_frac':0}
 
-class CombinedRateUniformMuSigmaFlatFracPriors(CombinedPrior):
+class CombinedRateUniformMuSigmaIsotropicFracPriors(CombinedPrior):
     """
     Takes the individual priors for each parameter above and constructs
     a combined prior from the uniform priors
@@ -176,7 +176,7 @@ class CombinedRateUniformMuSigmaFlatFracPriors(CombinedPrior):
 
     prior_classes = [UniformCosThetaLSRateHyperPrior,
                      UniformCosThetaLSSigmaHyperPrior,
-                     FixedUniformPercentageFlatFracPrior,
+                     FixedUniformPercentageIsotropicFracPrior,
                      UniformCosThetaLSMeanHyperPrior]
 
 class CombinedRateUniformSigmaFlatFlatFixedMuPriors(CombinedPrior):
@@ -189,5 +189,5 @@ class CombinedRateUniformSigmaFlatFlatFixedMuPriors(CombinedPrior):
 
     prior_classes = [UniformCosThetaLSRateHyperPrior,
                      UniformCosThetaLSSigmaHyperPrior,
-                     FixedUniformPercentageFlatFracPrior,
+                     FixedUniformPercentageIsotropicFracPrior,
                      FixedCosThetaLSMean1Prior]

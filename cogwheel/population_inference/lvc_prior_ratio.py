@@ -127,7 +127,7 @@ class LVCInjectionPriorToLVCPriorRatio(PriorRatio):
 
     def compute_auxiliary_quantities(self, samples):
         if 'z' not in samples.keys():
-            samples['z'] = z_of_d_luminosity(samples['d_luminosity']) 
+            samples['z'] = z_of_d_luminosity(samples['d_luminosity'])
 
     def lnprior_ratio(self, m1_source, q, z):
         # define constants
@@ -165,7 +165,7 @@ class LVCPriorToLVCInjectionPriorRatio(PriorRatio):
 
     def compute_auxiliary_quantities(self, samples):
         if 'z' not in samples.keys():
-            samples['z'] = z_of_d_luminosity(samples['d_luminosity']) 
+            samples['z'] = z_of_d_luminosity(samples['d_luminosity'])
 
     def lnprior_ratio(self, m1_source, q, z):
         # define constants

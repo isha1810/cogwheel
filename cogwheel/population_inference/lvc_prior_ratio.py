@@ -4,6 +4,7 @@ import pandas as pd
 from scipy import stats
 
 from .base_prior_ratio import PriorRatio
+from .pop_utils import normalized_powerlaw_distribution
 from cogwheel.cosmology import z_of_d_luminosity, comoving_to_luminosity_diff_vt_ratio
 
 # *************************************************
@@ -131,25 +132,24 @@ class LVCInjectionPriorToLVCPriorRatio(PriorRatio):
 
     def lnprior_ratio(self, m1_source, q, z):
         # define constants
-        alpha1=-2.35
-        alpha2=1.0
-        mmin=2.
-        mmax=100.
+        alpha1 = -2.35
+        alpha2 = 1.0
+        mmin = 2.
+        mmax = 100.
         max_spin=0.998
 
         injection_mass_jacobian = np.log(m1_source)
-        log_m1_source_norm = - np.log(np.power(mmax, alpha1+1)/(alpha1+1) - np.power(mmin, alpha1+1)/(alpha1+1))
-        log_m2_source_norm = - np.log(np.power(m1_source,alpha2+1)/(alpha2+1) - np.power(mmin,alpha2+1)/(alpha2+1))
+        log_m1_source_lnp = np.log(normalized_powerlaw_distribution(m1_source, alpha1, mmin, mmax))
+        log_m2_source_lnp = np.log(normalized_powerlaw_distribution(m1_source*q, alpha2, mmin, m1_source.values))
         
-        injection_mass_lnp = (alpha1*np.log(m1_source) + alpha2*np.log(q*m1_source)
-                               + log_m1_source_norm + log_m2_source_norm
+        injection_mass_lnp = (log_m1_source_lnp + log_m2_source_lnp
                                + injection_mass_jacobian)
         injection_lnp = injection_mass_lnp
         
         lvc_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
         lvc_mass_lnp = lvc_mass_jacobian
-        lvc_lnp = lvc_mass_lnp 
-
+        lvc_lnp = lvc_mass_lnp
+        
         return (injection_lnp - lvc_lnp)
 
 class LVCPriorToLVCInjectionPriorRatio(PriorRatio):
@@ -176,11 +176,10 @@ class LVCPriorToLVCInjectionPriorRatio(PriorRatio):
         max_spin=0.998
 
         injection_mass_jacobian = np.log(m1_source)
-        log_m1_source_norm = - np.log(np.power(mmax, alpha1+1)/(alpha1+1) - np.power(mmin, alpha1+1)/(alpha1+1))
-        log_m2_source_norm = - np.log(np.power(m1_source,alpha2+1)/(alpha2+1) - np.power(mmin,alpha2+1)/(alpha2+1))
+        log_m1_source_lnp = np.log(normalized_powerlaw_distribution(m1_source, alpha1, mmin, mmax))
+        log_m2_source_lnp = np.log(normalized_powerlaw_distribution(m1_source*q, alpha2, mmin, m1_source.values))
         
-        injection_mass_lnp = (alpha1*np.log(m1_source) + alpha2*np.log(q*m1_source) 
-                               + log_m1_source_norm + log_m2_source_norm
+        injection_mass_lnp = (log_m1_source_lnp + log_m2_source_lnp
                                + injection_mass_jacobian)
         injection_lnp = injection_mass_lnp
         

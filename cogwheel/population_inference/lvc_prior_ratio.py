@@ -123,34 +123,42 @@ class LVCInjectionPriorToLVCPriorRatio(PriorRatio):
     denominator = 'LVCPrior'
     params = ['m1_source', 'q']
     base_quantities = ['d_luminosity']
-    derived_quantities = ['z']
+    derived_quantities = ['z', 'injection_lnp', 'lvc_lnp']
     hyperparams = []
 
     def compute_auxiliary_quantities(self, samples):
         if 'z' not in samples.keys():
             samples['z'] = z_of_d_luminosity(samples['d_luminosity'])
+            
+        if 'injection_lnp' not in samples.keys():
+            # define constants
+            alpha1 = -2.35
+            alpha2 = 1.0
+            mmin = 2.
+            mmax = 100.
+            max_spin=0.998
+            
+            m1_source = samples['m1_source'].values
+            q = samples['q'].values
+            injection_mass_jacobian = np.log(m1_source)
+            log_m1_source_lnp = np.log(normalized_powerlaw_distribution(m1_source, alpha1, mmin, mmax))
+            log_m2_source_lnp = np.log(normalized_powerlaw_distribution(m1_source*q, alpha2, mmin, m1_source))
+            injection_mass_lnp = (log_m1_source_lnp + log_m2_source_lnp
+                                   + injection_mass_jacobian)
+            injection_lnp = injection_mass_lnp
+            samples['injection_lnp'] = injection_lnp
+            
+        if 'lvc_lnp' not in samples.keys():
+            m1_source = samples['m1_source'].values
+            z = samples['z']
+            lvc_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
+            lvc_mass_lnp = lvc_mass_jacobian
+            lvc_lnp = lvc_mass_lnp
+            samples['lvc_lnp'] = lvc_lnp
 
-    def lnprior_ratio(self, m1_source, q, z):
-        # define constants
-        alpha1 = -2.35
-        alpha2 = 1.0
-        mmin = 2.
-        mmax = 100.
-        max_spin=0.998
-
-        injection_mass_jacobian = np.log(m1_source)
-        log_m1_source_lnp = np.log(normalized_powerlaw_distribution(m1_source, alpha1, mmin, mmax))
-        log_m2_source_lnp = np.log(normalized_powerlaw_distribution(m1_source*q, alpha2, mmin, m1_source.values))
-        
-        injection_mass_lnp = (log_m1_source_lnp + log_m2_source_lnp
-                               + injection_mass_jacobian)
-        injection_lnp = injection_mass_lnp
-        
-        lvc_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
-        lvc_mass_lnp = lvc_mass_jacobian
-        lvc_lnp = lvc_mass_lnp
-        
+    def lnprior_ratio(self, m1_source, q, z, injection_lnp, lvc_lnp):
         return (injection_lnp - lvc_lnp)
+        
 
 class LVCPriorToLVCInjectionPriorRatio(PriorRatio):
     '''
@@ -160,31 +168,38 @@ class LVCPriorToLVCInjectionPriorRatio(PriorRatio):
     denominator = 'LVCInjectionPrior'
     params = ['m1_source', 'q']
     base_quantities = ['d_luminosity']
-    derived_quantities = ['z']
+    derived_quantities = ['z', 'injection_lnp', 'lvc_lnp']
     hyperparams = []
 
     def compute_auxiliary_quantities(self, samples):
         if 'z' not in samples.keys():
             samples['z'] = z_of_d_luminosity(samples['d_luminosity'])
+            
+        if 'injection_lnp' not in samples.keys():
+            # define constants
+            alpha1 = -2.35
+            alpha2 = 1.0
+            mmin = 2.
+            mmax = 100.
+            max_spin=0.998
+            
+            m1_source = samples['m1_source'].values
+            q = samples['q'].values
+            injection_mass_jacobian = np.log(m1_source)
+            log_m1_source_lnp = np.log(normalized_powerlaw_distribution(m1_source, alpha1, mmin, mmax))
+            log_m2_source_lnp = np.log(normalized_powerlaw_distribution(m1_source*q, alpha2, mmin, m1_source))
+            injection_mass_lnp = (log_m1_source_lnp + log_m2_source_lnp
+                                   + injection_mass_jacobian)
+            injection_lnp = injection_mass_lnp
+            samples['injection_lnp'] = injection_lnp
+            
+        if 'lvc_lnp' not in samples.keys():
+            m1_source = samples['m1_source'].values
+            z = samples['z'].values
+            lvc_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
+            lvc_mass_lnp = lvc_mass_jacobian
+            lvc_lnp = lvc_mass_lnp
+            samples['lvc_lnp'] = lvc_lnp
 
-    def lnprior_ratio(self, m1_source, q, z):
-        # define constants
-        alpha1 = -2.35
-        alpha2 = 1.0
-        mmin = 2.
-        mmax = 100.
-        max_spin=0.998
-
-        injection_mass_jacobian = np.log(m1_source)
-        log_m1_source_lnp = np.log(normalized_powerlaw_distribution(m1_source, alpha1, mmin, mmax))
-        log_m2_source_lnp = np.log(normalized_powerlaw_distribution(m1_source*q, alpha2, mmin, m1_source.values))
-        
-        injection_mass_lnp = (log_m1_source_lnp + log_m2_source_lnp
-                               + injection_mass_jacobian)
-        injection_lnp = injection_mass_lnp
-        
-        lvc_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
-        lvc_mass_lnp = lvc_mass_jacobian
-        lvc_lnp = lvc_mass_lnp
-        
+    def lnprior_ratio(self, m1_source, q, z, injection_lnp, lvc_lnp):
         return (lvc_lnp - injection_lnp)

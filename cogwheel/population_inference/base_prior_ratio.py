@@ -71,6 +71,21 @@ class PriorRatio(ABC):
         """List of event quantities to compute. These are functions of base_quantities"""
         return []
 
+    def compute_auxiliary_quantities(self, samples):
+        """
+        Add columns of `derived_quantities` in place to 
+        `samples` dataframe. 
+        Override this method if `derived_quantities` is 
+        not empty.
+
+        Parameters
+        ----------
+        samples: pd.DataFrame 
+            Contains columns of `params`+`derived_quantities`
+            for multiple parameter estimation samples of a given event/
+            multiple injection parameters.
+        """
+
     @abstractmethod
     def lnprior_ratio(self, *args, **kwargs):
         """

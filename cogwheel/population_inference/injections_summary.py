@@ -18,21 +18,18 @@ Z = 2.15 # 2.1455 Gpc^3 # same for O3a, O3b
 # Z_lvc = # Gpc^3
 
 class InjectionsSummary:
-    def __init__(self, n_inj, t_obs, pastro_ref, recovered_injections,
-                 obs_run='O3a', ifar_threshold=1., using_lvc_injections=False, 
-                 ifar_column_name='ifar', z=Z):
+    def __init__(self, n_inj, t_obs, z, obs_run, 
+                 recovered_injections, ifar_threshold=1.0,
+                 using_lvc_injections=False, apply_lvc_pastro_cut=False,
+                 ifar_column_name='ifar'):
         """
         Parameters
         ----------
         n_inj: int
-            Number of waveforms injected
+            Number of injected waveforms 
 
         t_obs: float
             duration of observing run (in yrs)
-
-        pastro_ref: pandas.DataFrame
-            eventnames and their pastros computed for the
-            reference population
 
         recovered_injections: pandas.DataFrame 
             parameters of injections recovered by search
@@ -46,13 +43,12 @@ class InjectionsSummary:
             threshold used on events
 
         ifar_column_name: str
-            ...
 
         """
         self.n_inj = n_inj
-        self.pastro_ref = pastro_ref
         self.t_obs = t_obs
         self.z = z
+        self.obs_run = obs_run
 
         if using_lvc_injections:
             mask_ifar_ge_one = np.logical_or.reduce((recovered_injections['ifar_gstlal']>=ifar_threshold, 
@@ -61,35 +57,54 @@ class InjectionsSummary:
             mask_ifar_ge_one_indices = np.where(mask_ifar_ge_one)[0]
             self.recovered_injections = recovered_injections.iloc[mask_ifar_ge_one_indices].copy()
             self.recovered_injections.reset_index(drop=True, inplace=True)
+        elif apply_lvc_pastro_cut:
+            mask_pastro_ge_point5 = np.logical_or.reduce((recovered_injections['pastro_cwb']>=0.5, 
+                                                recovered_injections['pastro_gstlal']>=0.5,
+                                                recovered_injections['pastro_mbta']>=0.5,
+                                                recovered_injections['pastro_pycbc_bbh']>=0.5,
+                                                recovered_injections['pastro_pycbc_broad']>=0.5))
+            mask_pastro_ge_point5_indices = np.where(mask_pastro_ge_point5)[0]
+            self.recovered_injections = recovered_injections.iloc[mask_pastro_ge_point5_indices].copy()
+            self.recovered_injections.reset_index(drop=True, inplace=True)
         else:
             mask_ifar_threshold = np.where(recovered_injections[ifar_column_name]>=ifar_threshold)[0]
             self.recovered_injections = recovered_injections.iloc[mask_ifar_threshold].copy()
             self.recovered_injections.reset_index(drop=True, inplace=True)
 
     @classmethod
-    def from_hdf5(cls, file_path=None, obs_run="O3a", ifar_threshold=0.5, z=Z):
+    def from_hdf5(cls, file_path, ifar_threshold=1.0,
+                  using_lvc_injections=True, apply_lvc_pastro_cut=False):
         '''
-        ....
+        Reads injection information from file and 
+        returns summary object.
         '''
-        if file_path is None:
-            file_path = SUMMARY_FILE_PATHS[obs_run]
         recovered_injections_h5 = pd.DataFrame()
-        pastro_ref_h5 = pd.DataFrame()
         try:
             with h5py.File(file_path, 'r') as f:
-                n_inj_h5 = f['Ninj'][()]
-                t_obs_h5 = f['TOBS'][()]
-                pastro_ref_group = f['pastro']
-                for evname, pastro in pastro_ref_group.items():
-                    pastro_ref_h5[evname] = pastro[:]
-                recovered_injections_group = f['recovered_injections']
-                for name, dataset in recovered_injections_group.items():
+                n_inj_h5 = f.attrs['N_inj']
+                t_obs_h5 = f.attrs['TOBS']
+                z_h5 = f.attrs['Z']
+                obs_run_h5 = f.attrs['obs_run']
+                for name, dataset in f.items():
                     recovered_injections_h5[name] = dataset[:]
         except KeyError as e:
             print(e)
-            print(f"{file_name} does not contain all the information needed to create this object")
+            print(f"{file_path} does not contain all the information needed to create this object")
+        return cls(n_inj=n_inj_h5, t_obs=t_obs_h5, z=z_h5, obs_run=obs_run_h5,
+                   recovered_injections=recovered_injections_h5,
+                   ifar_threshold=ifar_threshold,
+                   using_lvc_injections=using_lvc_injections,
+                   apply_lvc_pastro_cut=apply_lvc_pastro_cut)
 
-        return cls(n_inj=n_inj_h5, t_obs=t_obs_h5, pastro_ref=pastro_ref_h5,
-                   recovered_injections=recovered_injections_h5, obs_run=obs_run, 
-                   ifar_threshold=ifar_threshold, z=z)
-    
+    def to_hdf5(self, file_path):
+        '''
+        Create h5 file with summary
+        '''
+        with h5py.File(file_path, 'w') as f:
+            f.attrs['N_inj'] = self.n_inj
+            f.attrs['TOBS'] = self.t_obs
+            f.attrs['Z'] = self.z
+            f.attrs['obs_run'] = self.obs_run
+            for key, row in self.recovered_injections.items():
+                f.create_dataset(key, data=row)
+                

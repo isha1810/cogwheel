@@ -4,14 +4,19 @@ from scipy.special import logsumexp
 
 from cogwheel import utils
 
+def logdiffexp(x, y):
+    ''' Evaluate log(exp(x) - exp(y)) '''
+    return x + np.log1p( - np.exp(y - x) )
+
 class PopulationLikelihood(utils.JSONMixin):
     def __init__(self,
                  population_to_pe_ratio,
                  ref_population_to_pe_ratio,
                  pe_to_inj_population_ratio,
-                 pe_samples,
-                 list_of_evnames,
+                 # pe_samples,
+                 # list_evnames,
                  injections_summary,
+                 events_summary,
                  rate0):
         """
         Parameters
@@ -34,6 +39,9 @@ class PopulationLikelihood(utils.JSONMixin):
         injections_summary: InjectionsSummary
             Injections Information
 
+        events_summary: EventsSummary
+            Event information
+
         rate0: float
             Fiducial merger rate (inverse Gpc^3 yr).
         """
@@ -41,7 +49,7 @@ class PopulationLikelihood(utils.JSONMixin):
         self.ref_population_to_pe_ratio = ref_population_to_pe_ratio
         self.pe_to_inj_population_ratio = pe_to_inj_population_ratio
 
-        for samples in pe_samples:
+        for samples in events_summary.pe_samples_array:
             if "weights" in samples.keys():
                 samples['log_weights'] = (np.log(samples['weights']) - 
                                           np.log(np.sum(samples['weights'])))
@@ -58,16 +66,18 @@ class PopulationLikelihood(utils.JSONMixin):
         # Add columns of derived_quantites to injections samples and PE samples
         self._add_auxiliary_quantities_to_injections_samples(
                 injections_summary.recovered_injections)
-        self._add_auxiliary_quantities_to_pe_samples(pe_samples)
+        self._add_auxiliary_quantities_to_pe_samples(events_summary.pe_samples_array)
 
-        self.pe_samples = pe_samples
-        self.list_of_evnames = list_of_evnames
-        self.rate0 = rate0
-        self.recovered_injections = injections_summary.recovered_injections
-        self.pastro_ref = self._get_pastro_array(injections_summary.pastro_ref)
         self.n_inj = injections_summary.n_inj
         self.z = injections_summary.z
         self.t_obs = injections_summary.t_obs
+        self.recovered_injections = injections_summary.recovered_injections
+
+        self.list_of_evnames = events_summary.events
+        self.pe_samples = events_summary.pe_samples_array
+        self.pastro_ref = events_summary.pastros_array
+
+        self.rate0 = rate0
 
         self.params = self.population_to_pe_ratio.hyperparams + ['rate']
         
@@ -110,8 +120,31 @@ class PopulationLikelihood(utils.JSONMixin):
                    + self._pe_to_inj_population_ratio_lnprior_arr
                   + self.recovered_injections['log_weights']))
         vt = np.exp(log_vt)
-        
         return vt
+
+    def _compute_vt_and_neff(self, shape_hyperparams):
+        """
+        returns the vt, n_eff, err_vt
+        """
+        log_pop_to_inj = (self._compute_ln_prior_ratio(self.recovered_injections,
+                                            self.population_to_pe_ratio,
+                                            **shape_hyperparams)
+                       + self._pe_to_inj_population_ratio_lnprior_arr
+                      + self.recovered_injections['log_weights'])
+        
+        log_vt = (np.log(self.z) + np.log(self.t_obs)
+                 + logsumexp(log_pop_to_inj))
+        log_s2 = 2 * np.log(self.t_obs) + 2 * np.log(self.z)  + np.logaddexp.reduce(
+                2 * (log_pop_to_inj))
+        log_sig2 = logdiffexp(log_s2, 2.0*log_vt - np.log(self.n_inj))
+        log_sig = log_sig2 / 2
+
+        vt = np.exp(log_vt)
+        n_eff = np.exp(2 * log_vt - log_sig2)
+        sig = np.exp(log_sig)
+        
+        return vt, n_eff, sig
+        
 
     def _compute_ln_avg_prior_ratios(self, prior_ratio, **shape_hyperparams):
         """
@@ -160,7 +193,6 @@ class PopulationLikelihood(utils.JSONMixin):
         pandas.Dataframe with added columns corresponding to
         prior_ratio.derived_quantities
         """
-        pe_samples_modified = []
         for samples in pe_samples:
             self.population_to_pe_ratio.compute_auxiliary_quantities(samples)
             self.ref_population_to_pe_ratio.compute_auxiliary_quantities(samples)

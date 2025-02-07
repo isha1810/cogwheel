@@ -5,7 +5,7 @@ from scipy.special import logsumexp
 from cogwheel import utils
 
 def logdiffexp(x, y):
-    ''' Evaluate log(exp(x) - exp(y)) '''
+    """ Evaluate log(exp(x) - exp(y)) """
     return x + np.log1p( - np.exp(y - x) )
 
 class PopulationLikelihood(utils.JSONMixin):
@@ -124,7 +124,9 @@ class PopulationLikelihood(utils.JSONMixin):
 
     def _compute_vt_and_neff(self, shape_hyperparams):
         """
-        returns the vt, n_eff, err_vt
+        Return
+        ------
+        vt, n_eff, err_vt
         """
         log_pop_to_inj = (self._compute_ln_prior_ratio(self.recovered_injections,
                                             self.population_to_pe_ratio,
@@ -161,7 +163,7 @@ class PopulationLikelihood(utils.JSONMixin):
                      + samples['log_weights'])
             for samples in self.pe_samples])
 
-        return logsum_prior_ratios 
+        return logsum_prior_ratios
 
     def _compute_ln_prior_ratio(
             self, samples, prior_ratio, **shape_hyperparams):
@@ -196,22 +198,6 @@ class PopulationLikelihood(utils.JSONMixin):
         for samples in pe_samples:
             self.population_to_pe_ratio.compute_auxiliary_quantities(samples)
             self.ref_population_to_pe_ratio.compute_auxiliary_quantities(samples)
-
-    def _get_pastro_array(self, pastro_ref_table):
-        """
-        Return
-        ------
-        Array of pastros in the same order as the pe_samples
-        """
-        pastro_list=[]
-        for evname in self.list_of_evnames:
-            try:
-                pastro = pastro_ref_table[evname][0]
-            except KeyError:
-                print(f"pastro for event {evname} not found, using pastro=0")
-                pastro = 0
-            pastro_list.append(pastro)
-        return np.array(pastro_list)
     
     def lnlike_and_metadata(self, par_dic):
         """

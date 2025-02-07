@@ -2,9 +2,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from cogwheel.cosmology import (z_of_d_luminosity,
+                                comoving_to_luminosity_diff_vt_ratio)
+
 from .base_prior_ratio import PriorRatio
-from .pop_utils import normalized_powerlaw_distribution
-from cogwheel.cosmology import z_of_d_luminosity, comoving_to_luminosity_diff_vt_ratio
+from .pdfs import powerlaw
 
 class TestPriorToLVCPriorRatio(PriorRatio):
     numerator = 'TestPrior'
@@ -74,29 +76,29 @@ def logprob_spin_cartesian_coord_ajit(q, chieff, s1z, s2z,
 class QChieffLogNormToLVCPriorRatio(PriorRatio):
     numerator = 'QChieffLogNorm'
     denominator = 'LVCPrior'
-    params = ['m1_source', 'q','chieff', 's1z', 's2z']
+    params = ['m1_source', 'q','chieff', 's1x', 's1y', 's1z', 's2x', 's2y', 's2z']
     base_quantities = ['d_luminosity']
-    derived_quantities = ['z', 'lvc_lnp']
+    derived_quantities = ['z']
     hyperparams = ['q_min', 'q_max', 'chieff_min', 'chieff_max', 'm1min', 'm1max']
 
     def compute_auxiliary_quantities(self, samples):
         if 'z' not in samples.keys():
             samples['z'] = z_of_d_luminosity(samples['d_luminosity']) 
-        if 'lvc_lnp' not in samples.keys():
-            s1x, s1y, s1z = samples['s1x'], samples['s1y'], samples['s1z']
-            s2x, s2y, s2z = samples['s2x'], samples['s2y'], samples['s2z']
-            q=samples['q']
-            z=samples['z']
-            m1_source=samples['m1_source']
-            max_spin=0.998
-            # lvc_spin_jacobian = np.log(2*max_spin) + np.log(1+q) - np.log(q)
-            lvc_spin_lnp = (- np.log(4*np.pi*(s1x**2 + s1y**2 + s1z**2)*max_spin)
-                              - np.log(4*np.pi*(s2x**2 + s2y**2 + s2z**2)*max_spin)
-                              # + lvc_spin_jacobian
-                           )
-            lvc_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
-            lvc_mass_lnp = lvc_mass_jacobian
-            samples['lvc_lnp'] = lvc_spin_lnp + lvc_mass_lnp
+        # if 'lvc_lnp' not in samples.keys():
+        #     s1x, s1y, s1z = samples['s1x'], samples['s1y'], samples['s1z']
+        #     s2x, s2y, s2z = samples['s2x'], samples['s2y'], samples['s2z']
+        #     q=samples['q']
+        #     z=samples['z']
+        #     m1_source=samples['m1_source']
+        #     max_spin=0.998
+        #     # lvc_spin_jacobian = np.log(2*max_spin) + np.log(1+q) - np.log(q)
+        #     lvc_spin_lnp = (- np.log(4*np.pi*(s1x**2 + s1y**2 + s1z**2)*max_spin)
+        #                       - np.log(4*np.pi*(s2x**2 + s2y**2 + s2z**2)*max_spin)
+        #                       # + lvc_spin_jacobian
+        #                    )
+        #     lvc_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
+        #     lvc_mass_lnp = lvc_mass_jacobian
+        #     samples['lvc_lnp'] = lvc_spin_lnp + lvc_mass_lnp
             
         if 'pop_inplane_spin_lnp' not in samples.keys():
             s1x, s1y, s1z = samples['s1x'], samples['s1y'], samples['s1z']
@@ -111,13 +113,13 @@ class QChieffLogNormToLVCPriorRatio(PriorRatio):
             samples['pop_inplane_spin_lnp'] = (-np.log(2*np.pi*inplane_spin1*max_inplane_spin1)
                                    -np.log(2*np.pi*inplane_spin2*max_inplane_spin2))
             
-    def lnprior_ratio(self, m1_source, q, chieff, s1z, s2z, z, lvc_lnp,
+    def lnprior_ratio(self, m1_source, q, chieff, s1x, s1y, s1z, s2x, s2y, s2z, z,
                       q_min, q_max, chieff_min, chieff_max, m1min, m1max):
 
         alpha1=-2.35
         mmin=2.0
         mmax=100.0
-        m1_source_lnp = np.log(normalized_powerlaw_distribution(m1_source, alpha1, m1min, m1max))
+        m1_source_lnp = np.log(powerlaw(m1_source, alpha1, m1min, m1max))
         min_allowed_q = mmin/m1_source
         q_min = np.where(q_min<min_allowed_q, min_allowed_q, q_min)
  
@@ -126,10 +128,18 @@ class QChieffLogNormToLVCPriorRatio(PriorRatio):
         
         # chieff_ln_norm = - np.log(chieff_max-chieff_min)
         # spin_lnp = uniform_chieff_s1_s2(q, chieff, s1z, s2z, chieff_max, chieff_min)
+        max_spin=0.998
+
         spin_lnp = logprob_spin_cartesian_coord_ajit(q, chieff, s1z, s2z, chieff_max, chieff_min)
         
         time_dilation = - np.log(1+z)
         pop_lnp = mass_lnp + spin_lnp + time_dilation
+
+        lvc_spin_lnp = (- np.log(4*np.pi*(s1x**2 + s1y**2 + s1z**2)*max_spin)
+                          - np.log(4*np.pi*(s2x**2 + s2y**2 + s2z**2)*max_spin))
+        lvc_mass_jacobian = 2*np.log(1+z) + np.log(m1_source)
+        lvc_mass_lnp = lvc_mass_jacobian
+        lvc_lnp2 = lvc_spin_lnp + lvc_mass_lnp
         
-        return pop_lnp - lvc_lnp
+        return pop_lnp - lvc_lnp2
         

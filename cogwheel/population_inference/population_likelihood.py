@@ -13,8 +13,6 @@ class PopulationLikelihood(utils.JSONMixin):
                  population_to_pe_ratio,
                  ref_population_to_pe_ratio,
                  pe_to_inj_population_ratio,
-                 # pe_samples,
-                 # list_evnames,
                  injections_summary,
                  events_summary,
                  rate0):

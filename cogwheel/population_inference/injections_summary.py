@@ -1,7 +1,7 @@
-'''
+"""
 Class that reads the injections summary from -
 "utils.DATA_ROOT/injections/O3(a or b)/injection_loader/injections_summary.hdf5"
-'''
+"""
 import h5py
 import numpy as np
 import os
@@ -10,17 +10,16 @@ import pandas as pd
 # These are the directories where latest injections are for O3a and O3b
 # INJECTION_ROOT_DIRS = {'O3a': '/home/isha/O3a_data/injections/O3a',
 #                  'O3b': '/home/isha/O3a_data/injections/O3b'}
-SUMMARY_FILE_PATHS = {'O3a': os.path.join('data',
-                                "injections_summary_pastro_added.hdf5")}
+# SUMMARY_FILE_PATHS = {'O3a': os.path.join('data',
+                                # "injections_summary_pastro_added.hdf5")}
                      # 'O3b': os.path.join(INJECTION_ROOT_DIRS['O3b'], "injection_loader",
                      #            "injections_summary.hdf5")}
 Z = 2.15 # 2.1455 Gpc^3 # same for O3a, O3b
-# Z_lvc = # Gpc^3
 
 class InjectionsSummary:
     def __init__(self, n_inj, t_obs, z, obs_run, 
                  recovered_injections, ifar_threshold=1.0,
-                 using_lvc_injections=False, apply_lvc_pastro_cut=False,
+                 using_lvc_injections=True, apply_lvc_pastro_cut=False,
                  ifar_column_name='ifar'):
         """
         Parameters
@@ -74,10 +73,10 @@ class InjectionsSummary:
     @classmethod
     def from_hdf5(cls, file_path, ifar_threshold=1.0,
                   using_lvc_injections=True, apply_lvc_pastro_cut=False):
-        '''
+        """
         Reads injection information from file and 
         returns summary object.
-        '''
+        """
         recovered_injections_h5 = pd.DataFrame()
         try:
             with h5py.File(file_path, 'r') as f:
@@ -97,9 +96,9 @@ class InjectionsSummary:
                    apply_lvc_pastro_cut=apply_lvc_pastro_cut)
 
     def to_hdf5(self, file_path):
-        '''
+        """
         Create h5 file with summary
-        '''
+        """
         with h5py.File(file_path, 'w') as f:
             f.attrs['N_inj'] = self.n_inj
             f.attrs['TOBS'] = self.t_obs

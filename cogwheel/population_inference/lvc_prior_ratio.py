@@ -64,7 +64,7 @@ class LVCPriorToLVCInjectionPriorRatio(PriorRatio):
                 - lvc_injection_mass_lnp(samples['m1_source'],
                                          samples['m2_source'])
             )
-            
+
     def lnprior_ratio(self, z, lvc_pe_to_lvc_injection_mass_lnp):
         return (lvc_pe_to_lvc_injection_mass_lnp)
 

@@ -1,3 +1,7 @@
+"""
+Contains all the events information required to
+for population inference
+"""
 import h5py
 import numpy as np
 import os
@@ -5,14 +9,11 @@ import pandas as pd
 import warnings
 
 class EventsSummary:
-    '''
-    Contains all the events information required to
-    for population inference
-    '''
-    
     def __init__(self, pe_samples, pastros, ifars,
                  obs_run, pe_prior, ifar_threshold=1.0):
-        '''
+        """
+        Parameters
+        ----------
         pe_samples: dict of pd.DataFrames
             dictionary whose keys are event names
             and values are a dataframe of samples
@@ -35,7 +36,7 @@ class EventsSummary:
             threshold on ifar, same as the
             threshold used on injections
 
-        '''
+        """
         self.obs_run = obs_run
         self.pe_prior = pe_prior
         self.events = list(pe_samples.keys())
@@ -53,26 +54,27 @@ class EventsSummary:
             "Not a problem if doing LVC analysis.")
 
     def to_hdf5(self, file_path):
-        '''
+        """
         Write object to hdf5 file
-        '''
+        """
         with h5py.File(file_path, 'w') as f:
             f.attrs["obs_run"] = self.obs_run
-            f.attrs["pe_prior"] = self.pe_prior
+            f.attrs["prior"] = self.pe_prior
             for event_name, samples_df in self.pe_samples.items():
                 event_group = f.create_group(event_name)
                 event_group.attrs["ifar"] = self.ifars[event_name]
                 event_group.attrs["pastro"] = self.pastros[event_name]
                 for key, row in samples_df.iterrows():
-                    event_group.create_dataset(key, data=row)
+                    event_group.create_dataset(key,
+                                               data=row.values)
 
     @classmethod
     def from_hdf5(cls, file_path,
                   ifar_threshold=1.0):
-        '''
+        """
         Read from hdf5 file and return
         EventsSummary object.
-        '''
+        """
         pe_samples_all = {} # dict of PEs indexed by event
         ifars_dict = {} # dict of ifars indexed by event
         pastros_dict = {} # dict of pastros indexed by event
@@ -93,20 +95,20 @@ class EventsSummary:
                  obs_run, prior_name, ifar_threshold=ifar_threshold)
 
     def downsample_posteriors(self, max_samples, rs=1):
-        '''
+        """
         modifies pe_samples dictionary such that
         the len(samples)<= max_samples
-        '''
+        """
         for key, samples_df in self.pe_samples.items():
             if len(samples_df)>max_samples:
                 self.pe_samples[key] = samples_df.sample(
                     max_samples, random_state=rs, ignore_index=True)
         
     def _get_samples_and_pastro_arrays(self):
-        '''
+        """
         returns an array of pd.Dataframes
         and pastros in the same order
-        '''
+        """
         pastros_list = []
         pe_samples_list = []
         for evname in self.events:

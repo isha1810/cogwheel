@@ -3,12 +3,16 @@ Functions to compute commonly used priors
 """
 import numpy as np
 from .pdfs import (powerlaw,
+                    smoothed_powerlaw,
+                    smoothed_powerlaw_q,
+                    smoothed_uniform,
                     truncated_gaussian,
-                    smoothed_uniform)
+                    )
 from .jacobians import chieff_cumchidiff_to_s1z_s2z
+from cogwheel.cosmology import comoving_to_luminosity_diff_vt_ratio
 
 # ----------------------------------------------------------------------
-# Functions that compute log priors for PE priors. #
+# Functions that compute log priors for LVC PE priors. #
 
 def lvc_mass_lnp():
     """
@@ -63,6 +67,36 @@ def lvc_lnp_cosmo(s1x, s1y, s1z,
 #     returns lvc_mass_lnp+lvc_spin_lnp+lvc_redshift_lnp_cosmo
 #     """
 #     return
+
+
+# ----------------------------------------------------------------------
+# Functions that compute log priors for IAS PE priors. #
+
+def ias_mass_lnp():
+    """
+    defined in params: (m1, m2)
+    uniform in detector frame masses
+    !!not normalized to integrate to 1!!
+    """
+    lnp = 0.0
+    return lnp
+
+# def ias_spin_lnp():
+#     """
+#     defined in params: (chieff, cumchidiff, s1x_n, s1y_n, s2x_n, s2y_n)
+#     Uniform in chieff and cumchidiff (conditioned on chieff), 
+#     Uniform inplane disk
+#     """
+#     lnp = 
+
+def ias_redshift_time_lnp(d_luminosity):
+    """
+    defined in params: (V_comoving, t_comoving)
+    uniform in luminosity volume, observer time
+    """
+    lnp = -np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity))
+    return lnp
+    
 
 # ----------------------------------------------------------------------
 # Functions that compute log priors for Injection priors.
@@ -123,7 +157,7 @@ def powerlaw_primary_mass_lnp(m1_source, alpha, m_min, m_max):
                 powerlaw(m1_source,-alpha,m_min, m_max)
     The above function integrates to 1 in (m_min, m_max)
     """
-    primary_mass_lnp = np.log(powerlaw(m1_source.values, 
+    primary_mass_lnp = np.log(powerlaw(m1_source, 
                                        -alpha,
                                        m_min,
                                        m_max))
@@ -142,16 +176,51 @@ def powerlaw_peak_primary_mass_lnp(m1_source, lambda_peak, alpha,
                     + (lambda_peak)N_t(m_mean, m_std, m_min, m_max)
     The above function integrates to 1 in (m_min, m_max)
     """
+    # gaussian_mass_peak = truncated_gaussian(m1_source,
+    #                                         m_min,
+    #                                         m_max,
+    #                                         m_mean,
+    #                                         m_std)
     gaussian_mass_peak = truncated_gaussian(m1_source,
                                             m_min,
-                                            m_max,
+                                            100.0,
                                             m_mean,
                                             m_std)
     
-    primary_mass_lnp = np.log((1-lambda_peak)*powerlaw(m1_source.values, 
+    primary_mass_lnp = np.log((1-lambda_peak)*powerlaw(m1_source, 
                                                        -alpha, m_min, m_max)
                            + lambda_peak*gaussian_mass_peak)
     return primary_mass_lnp
+
+def smoothed_powerlaw_peak_primary_mass_lnp(m1_source, lambda_peak, alpha,
+                          m_min, m_max, m_mean, m_std, delta_m):
+    """
+    defined in params: (m1_source)
+    
+    Returns
+    -------
+    p(m1_source | alpha, lambda_peak,
+            m_min, m_max, m_mean, m_std, delta_m) =
+                (1-lambda_peak)*smoothed_powerlaw(m1_source,-alpha,m_min, m_max, delta_m)
+                    + (lambda_peak)N_t(m_mean, m_std, m_min, m_max)
+    The above function integrates to 1 in (m_min, m_max)
+    """
+    # gaussian_mass_peak = truncated_gaussian(m1_source,
+    #                                         m_min,
+    #                                         m_max,
+    #                                         m_mean,
+    #                                         m_std)
+    gaussian_mass_peak = truncated_gaussian(m1_source,
+                                            m_min,
+                                            100.0,
+                                            m_mean,
+                                            m_std)
+    
+    primary_mass_lnp = np.log((1-lambda_peak)*smoothed_powerlaw(m1_source, 
+                                                       -alpha, m_min, m_max, delta_m)
+                           + lambda_peak*gaussian_mass_peak)
+    return primary_mass_lnp
+
 
 def powerlaw_mass_ratio_lnp(q, m1_source, beta, m_min):
     """
@@ -165,18 +234,74 @@ def powerlaw_mass_ratio_lnp(q, m1_source, beta, m_min):
     """
     q_min = m_min/m1_source
     q_max = 1.
-    q_lnp = np.log(powerlaw(q.values,
+    q_lnp = np.log(powerlaw(q,
                             beta,
-                            q_min.values,
+                            q_min,
                             q_max))
     return q_lnp
+
+def smoothed_powerlaw_mass_ratio_lnp(q, m1_source, beta, m_min, m_max, delta_m):
+    """
+    defined in params: (q)
+    
+    Returns
+    -------
+    p(q | m1_source, beta, m_min) =
+            powerlaw(q, beta, q_min=m_min/m1_source, q_max=1.0)
+    The above function integrates to 1 in (q_min, q_max)
+    """
+    q_lnp = np.log(smoothed_powerlaw_q(q.values,
+                                       m1_source.values,
+                                       beta,
+                                       m_min,
+                                       m_max,
+                                       delta_m))
+    return q_lnp
+
+def gaussian_mass_ratio_prior(q, mu, sigma,
+                            q_min, q_max):
+    """
+    defined in params: (q)
+    
+    Returns
+    -------
+    p(q | mu, sigma, q_min, q_max) =
+            N_truncated(q, mu, sigma, q_min=m_min/m1_source, q_max=1.0)
+    The above function integrates to 1 in (q_min, q_max)
+    """
+    q_prior = truncated_gaussian(q,
+                               q_min,
+                               q_max,
+                               mu,
+                               sigma)    
+    return q_prior
 
 # ----------------------------------------------------------------------
 # Functions that compute log priors for spin Population priors. #
 
 def uniform_chieff_lnp(max_chieff):
+    """
+    defined in params: (chieff)
+    """
     return -np.log(2*max_chieff)
 
+def gaussian_chieff_prior(chieff, mu, sigma,
+                       chieff_min=-1.0, chieff_max=1.0):
+    """
+    defined in params: (chieff)
+
+    Returns
+    -------
+    p(chieff | mu, sigma) = 
+                N_truncated(mu, sigma, min=chieff_min, max=chieff_max)
+    """
+    chieff_prior = truncated_gaussian(chieff,
+                                    chieff_min,
+                                    chieff_max,
+                                    mu,
+                                    sigma)
+    return chieff_prior
+    
 def natally_spinning_prior(chieff, q, sigma_chi,
                    chieff_min=-1.0, chieff_max=1.0):
     """
@@ -195,7 +320,7 @@ def natally_spinning_prior(chieff, q, sigma_chi,
                                     chieff_min,
                                     chieff_max,
                                     mu,
-                                    sigma.values)
+                                    sigma)
     return chieff_prior
 
 def tidally_locked_secondary_spin_prior(chieff, q, sigma_chi,
@@ -215,7 +340,7 @@ def tidally_locked_secondary_spin_prior(chieff, q, sigma_chi,
     chieff_prior = truncated_gaussian(chieff,
                                     chieff_min,
                                     chieff_max,
-                                    mu.values,
+                                    mu,
                                     sigma.values)
     return chieff_prior
 
@@ -256,4 +381,3 @@ def uniform_chieff_cartesian_spins_lnp(
                     -np.log(4*(1+q)*max_spin**2))
     return spin_prior
 # ----------------------------------------------------------------------
-# Functions that compute log prior ratios for spin priors.

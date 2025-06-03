@@ -38,12 +38,14 @@ class LVCInjectionPriorToLVCPriorRatio(PriorRatio):
             )
 
     def lnprior_ratio(self, z, lvc_injection_to_lvc_pe_mass_lnp):
+        time_dilation = np.log(1+z)
+        lvc_injection_to_lvc_pe_mass_lnp += time_dilation
         return (lvc_injection_to_lvc_pe_mass_lnp)
         
 
 class LVCPriorToLVCInjectionPriorRatio(PriorRatio):
     '''
-    Ratio between the LVC(cosmo) PE Prior (cosmo=>uniform in comoving volume) 
+    Ratio between the LVC(cosmo) PE Prior (cosmo=>uniform in comoving volume)
     and the LVC Injection Prior
     '''
     numerator = 'LVCPrior(cosmo)'
@@ -66,5 +68,7 @@ class LVCPriorToLVCInjectionPriorRatio(PriorRatio):
             )
 
     def lnprior_ratio(self, z, lvc_pe_to_lvc_injection_mass_lnp):
+        time_dilation = np.log(1+z)
+        lvc_pe_to_lvc_injection_mass_lnp -= time_dilation
         return (lvc_pe_to_lvc_injection_mass_lnp)
 

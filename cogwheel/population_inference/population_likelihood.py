@@ -1,5 +1,6 @@
 import glob
 import numpy as np
+from multiprocessing import Pool
 from scipy.special import logsumexp
 
 from cogwheel import utils
@@ -42,6 +43,9 @@ class PopulationLikelihood(utils.JSONMixin):
 
         rate0: float
             Fiducial merger rate (inverse Gpc^3 yr).
+
+        ncores: int
+            Number of cores to use in multiprocess.Pool
         """
         self.population_to_pe_ratio = population_to_pe_ratio
         self.ref_population_to_pe_ratio = ref_population_to_pe_ratio
@@ -145,7 +149,6 @@ class PopulationLikelihood(utils.JSONMixin):
         
         return vt, n_eff, sig
         
-
     def _compute_ln_avg_prior_ratios(self, prior_ratio, **shape_hyperparams):
         """
         Return
@@ -157,7 +160,7 @@ class PopulationLikelihood(utils.JSONMixin):
         
         logsum_prior_ratios = np.array([
             logsumexp(self._compute_ln_prior_ratio(samples, prior_ratio,
-                                                   **shape_hyperparams) 
+                                                   **shape_hyperparams)
                      + samples['log_weights'])
             for samples in self.pe_samples])
 

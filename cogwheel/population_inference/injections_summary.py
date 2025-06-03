@@ -105,5 +105,6 @@ class InjectionsSummary:
             f.attrs['Z'] = self.z
             f.attrs['obs_run'] = self.obs_run
             for key, row in self.recovered_injections.items():
+                # print(f"==> {key} dtypes:\n", row.dtypes)
+                # print(row.head())
                 f.create_dataset(key, data=row)
-                

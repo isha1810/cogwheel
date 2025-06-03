@@ -65,7 +65,7 @@ class EventsSummary:
                 event_group.attrs["ifar"] = self.ifars[event_name]
                 event_group.attrs["pastro"] = self.pastros[event_name]
                 for key, row in samples_df.iterrows():
-                    event_group.create_dataset(key,
+                    event_group.create_dataset(str(key),
                                                data=row.values)
 
     @classmethod
@@ -102,7 +102,9 @@ class EventsSummary:
         for key, samples_df in self.pe_samples.items():
             if len(samples_df)>max_samples:
                 self.pe_samples[key] = samples_df.sample(
-                    max_samples, random_state=rs, ignore_index=True)
+                    max_samples, random_state=rs).reset_index(drop=True)
+        self.pe_samples_array, self.pastros_array = \
+            self._get_samples_and_pastro_arrays()
         
     def _get_samples_and_pastro_arrays(self):
         """
@@ -115,7 +117,10 @@ class EventsSummary:
             pastros_list.append(self.pastros[evname])
             pe_samples_list.append(self.pe_samples[evname])
         pastros_array = np.array(pastros_list)
-        pe_samples_array = np.array(pe_samples_list, dtype=object)
+        pe_samples_array = np.empty(len(pe_samples_list), dtype=object)
+        for i, df in enumerate(pe_samples_list):
+            pe_samples_array[i] = df
+        # pe_samples_array = np.array(pe_samples_list, dtype=object)
         return (pe_samples_array, pastros_array)
 
     # def _apply_ifar_cut(self, ifar_threshold=1.0):

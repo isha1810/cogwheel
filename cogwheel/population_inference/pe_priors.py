@@ -1,8 +1,11 @@
 """
 Functions to compute commonly used priors
 """
+import sys
+from .effective_spin_priors import chi_effective_prior_from_isotropic_spins
+
 import numpy as np
-from .pdfs import (powerlaw,
+from .pdfs import (uniform, powerlaw,
                     smoothed_powerlaw,
                     smoothed_powerlaw_q,
                     smoothed_uniform,
@@ -35,24 +38,12 @@ def lvc_spin_lnp(s1x, s1y, s1z,
                   - np.log(4*np.pi*(s2x**2 + s2y**2 + s2z**2)*max_spin))
     return lnp
 
-# def lvc_redshift_lnp_nocosmo(z):
-#     """
-#     uniform in luminosity volume
-#     """
-#     return
-
-# def lvc_redshift_lnp_cosmo(z):
-#     """
-#     uniform in comoving volume
-#     """
-#     return
-
 def lvc_lnp_cosmo(s1x, s1y, s1z,
                   s2x, s2y, s2z,
                   max_spin=0.998):
     """
     defined in params: (m1source, m2_source, s1x, s1y, s1z, s2x, s2y, s2z)
-    cosmo => reweighted to be uniform in comoving volume
+    cosmo => reweighted to be uniform in comoving volume time
     TODO: Add redshift prior
     """
     lnp = lvc_mass_lnp() + lvc_spin_lnp(s1x, s1y, s1z,
@@ -60,15 +51,19 @@ def lvc_lnp_cosmo(s1x, s1y, s1z,
                                         max_spin)
     return lnp
 
-# def lvc_lnp_nocosmo(m1_source, q,
-#                      s1x, s1y, s1z, s2x, s2y, s2z,
-#                      z, s1z_min=-0.998, s1z_min=0.998):
-#     """
-#     returns lvc_mass_lnp+lvc_spin_lnp+lvc_redshift_lnp_cosmo
-#     """
-#     return
-
-
+def isotropic_spins_marginal_chieff_lnp(chieff, q,
+                                        max_spin=0.998):
+    """
+    defined in params: (chieff)
+    
+    Returns
+    -------
+    Eq. (10) in https://arxiv.org/pdf/2104.09508
+    """
+    lvc_spin_lnp = np.log(chi_effective_prior_from_isotropic_spins(
+        q,max_spin,chieff))
+    
+    return lvc_spin_lnp
 # ----------------------------------------------------------------------
 # Functions that compute log priors for IAS PE priors. #
 
@@ -80,14 +75,6 @@ def ias_mass_lnp():
     """
     lnp = 0.0
     return lnp
-
-# def ias_spin_lnp():
-#     """
-#     defined in params: (chieff, cumchidiff, s1x_n, s1y_n, s2x_n, s2y_n)
-#     Uniform in chieff and cumchidiff (conditioned on chieff), 
-#     Uniform inplane disk
-#     """
-#     lnp = 
 
 def ias_redshift_time_lnp(d_luminosity):
     """
@@ -128,10 +115,6 @@ def lvc_injection_spin_lnp(s1x, s1y, s1z,
                         s2x, s2y, s2z,
                         max_spin=max_spin)
 
-# def lvc_injection_redshift_lnp():
-#     """
-#     """
-#     return
 
 def lvc_injection_lnp(m1_source, m2_source,
                       s1x, s1y, s1z,
@@ -144,6 +127,34 @@ def lvc_injection_lnp(m1_source, m2_source,
             + lvc_injection_spin_lnp(s1x, s1y, s1z,
                                      s2x, s2y, s2z))
 
+def ias_o1o2_injection_mass_lnp(m1_source, q):
+    """
+    defined in params: (m1_source, q)
+    """
+    alpha1 = -2.35
+    mmin = 5
+    mmax = 50
+    qmin = mmin/m1_source
+    qmax = 1.0
+    primary_mass_lnp = np.log(powerlaw(m1_source, alpha1,
+                                      mmin, mmax))
+    mass_ratio_lnp = np.log(uniform(q, qmin, qmax))
+    return (primary_mass_lnp
+            + mass_ratio_lnp)
+
+def ias_o1o2_injection_spin_lnp(chieff):
+    """
+    defined in params: (chieff)
+    """
+    return -np.log(2)
+
+def ias_o1o2_injection_lnp(m1_source, q, chieff):
+    """
+    defined in params: (m1_source, q, chieff)
+    """
+    return (ias_o1o2_injection_mass_lnp(m1_source, q) 
+            + ias_o1o2_injection_spin_lnp(chieff))
+    
 # ----------------------------------------------------------------------
 # Functions that compute log priors for mass Population priors. #
 

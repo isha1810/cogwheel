@@ -64,9 +64,9 @@ class EventsSummary:
                 event_group = f.create_group(event_name)
                 event_group.attrs["ifar"] = self.ifars[event_name]
                 event_group.attrs["pastro"] = self.pastros[event_name]
-                for key, row in samples_df.iterrows():
+                for key in samples_df.keys():
                     event_group.create_dataset(str(key),
-                                               data=row.values)
+                                               data=samples_df[key])
 
     @classmethod
     def from_hdf5(cls, file_path,

@@ -21,14 +21,14 @@ class CombinedPopulationLikelihood(utils.JSONMixin):
             
         """
         # check to make sure the population_to_pe have the same hyperparams
-        hyperparams_list = population_likelihood_list.hyperparams
+        hyperparams_list = population_likelihood_list[0].params
         for population_likelihood_object in population_likelihood_list[1:]:
             assert set(hyperparams_list) == \
-                    set(population_likelihood_object.hyperparams),\
+                    set(population_likelihood_object.params),\
                     "The PopulationLikelihood objects passed must have the same 'params'."
         #then do
         self.population_likelihood_list = population_likelihood_list
-        self.params = self.population_to_pe_ratio.hyperparams + ['rate']
+        self.params = hyperparams_list + ['rate']
 
     def lnlike(self, hyperparams_dic):
         """Log of the population likelihood."""

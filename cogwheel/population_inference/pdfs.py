@@ -41,7 +41,16 @@ def powerlaw(x, alpha, x_min, x_max):
     # check NaNs
     check_nan(normed_f_x)
     return normed_f_x
-    
+
+def uniform(x, x_min, x_max):
+    """
+    Returns U(x_min, x_max) = 1/(x_max - x_min)
+    for x_min < x < x_max
+    """
+    norm = 1/(x_max - x_min)
+    mask_non_zero = np.logical_and(x>=x_min, x<=x_max)
+    f_x = np.where(mask_non_zero, norm, EPSILON)
+    return f_x
 
 def smoothing_function(x, x_min, delta_x):
     """
@@ -260,27 +269,3 @@ def truncated_gaussian(x, x_min, x_max, mean, std):
     # check_nan(f_x)
     
     return f_x
-
-# def truncated_gaussian(x, x_min, x_max, mean, std):
-#     """
-#     evaluates the gaussian pdf described by mean, std, x_min, x_max
-#     at array of values x.
-#     f_x  = A * exp(-(x-mean)/std**2),
-#         A = [sqrt(2*pi*sigma**2) * (Phi((x_max-mu)/sqrt(2)*sigma) - Phi((x_min-mu)/sqrt(2)*sigma)]^-1
-#     where Phi(xi) = 0.5*(1 + erf(xi/sqrt(2))).
-#     """
-#     xi_max = (x_max-mean)/std
-#     xi_min = (x_min-mean)/std
-#     Phi_x_max = 0.5*(1+erf(xi_max/np.sqrt(2)))
-#     Phi_x_min = 0.5*(1+erf(xi_min/np.sqrt(2)))
-    
-#     A = (np.sqrt(2*np.pi*std**2)*(Phi_x_max-Phi_x_min))**-1
-#     f_x = A*np.exp(-(x-mean)**2/(2*std**2))
-    
-#     mask_zero = np.logical_or(x<x_min, x>x_max)
-#     f_x[mask_zero] = EPSILON
-
-#     # check NaNs
-#     check_nan(f_x)
-    
-#     return f_x

@@ -24,7 +24,7 @@ class GaussianPlusFlatCosThetaLSToVolumetricPriorRatio(PriorRatio):
     numerator = 'GaussianCosThetaLS'
     denominator = 'VolumetricPrior'
     params = ['cos_theta_ls', 'm1_source']
-    hyperparams = ['cos_theta_ls_mean', 'cos_theta_ls_std', 'alpha']
+    hyperparams = ['cos_theta_ls_mean', 'cos_theta_ls_std', 'isotropic_prior_frac']
 
     base_quantities = ['d_luminosity']
     derived_quantities = ['z', 'comoving_to_luminosity']
@@ -48,7 +48,7 @@ class GaussianPlusFlatCosThetaLSToVolumetricPriorRatio(PriorRatio):
     def lnprior_ratio(self, cos_theta_ls, m1_source, z,
                       comoving_to_luminosity,
                       cos_theta_ls_mean, cos_theta_ls_std,
-                      alpha):
+                      isotropic_prior_frac):
         """
         Return log of the ratio between a (truncated) Gaussian prior on
         cos_theta_ls and the volumetric (flat) cos_theta_ls prior.
@@ -72,7 +72,7 @@ class GaussianPlusFlatCosThetaLSToVolumetricPriorRatio(PriorRatio):
         float array of shape (n_samples,)
         """
 
-        beta = 1 - alpha
+        beta = 1 - isotropic_prior_frac
 
         cos_theta_ls_bounds = np.array([-1.0, 1.0])
         a_transformed, b_transformed = (cos_theta_ls_bounds -
@@ -85,7 +85,7 @@ class GaussianPlusFlatCosThetaLSToVolumetricPriorRatio(PriorRatio):
                                                      scale=cos_theta_ls_std)
 
         gaussian_plus_flat_cos_theta_ls = \
-            alpha * 0.5 + beta * gaussian_cos_theta_ls
+            isotropic_prior_frac * 0.5 + beta * gaussian_cos_theta_ls
         gaussian_plus_flat_cos_theta_ls_lnp = \
             np.log(gaussian_plus_flat_cos_theta_ls)
 
@@ -110,7 +110,7 @@ class UniformCosThetaLSHyperPrior(IdentityTransformMixin, Prior):
         'rate',
         'cos_theta_ls_mean',
         'cos_theta_ls_std',
-        'alpha']
+        'isotropic_prior_frac']
     range_dic={'rate':(5, 200),
                'cos_theta_ls_mean':(-1, 1),
                'cos_theta_ls_std':(0.1,2)}
@@ -159,15 +159,15 @@ class UniformCosThetaLSMeanHyperPrior(
     """
     range_dic={'cos_theta_ls_mean':(-1, 1)}
 
-class FixedUniformPercentageAlphaPrior(FixedPrior):
+class FixedUniformPercentageIsotropicFracPrior(FixedPrior):
     """
     Gives the hyperprior for a gaussian + uniform distribution of
-    cos(theta_LS) for a fixed proportion of the gaussian distribution
-    defined as alpha
+    cos(theta_LS) for a fixed proportion of the flat distribution
+    defined as isotropic_prior_frac
     """
-    standard_par_dic = {'alpha':0}
+    standard_par_dic = {'isotropic_prior_frac':0}
 
-class CombinedRateUniformMuSigmaAlphaPriors(CombinedPrior):
+class CombinedRateUniformMuSigmaIsotropicFracPriors(CombinedPrior):
     """
     Takes the individual priors for each parameter above and constructs
     a combined prior from the uniform priors
@@ -176,10 +176,10 @@ class CombinedRateUniformMuSigmaAlphaPriors(CombinedPrior):
 
     prior_classes = [UniformCosThetaLSRateHyperPrior,
                      UniformCosThetaLSSigmaHyperPrior,
-                     FixedUniformPercentageAlphaPrior,
+                     FixedUniformPercentageIsotropicFracPrior,
                      UniformCosThetaLSMeanHyperPrior]
 
-class CombinedRateUniformSigmaAlphaFixedMuPriors(CombinedPrior):
+class CombinedRateUniformSigmaFlatFlatFixedMuPriors(CombinedPrior):
     """
     Takes the individual priors for each parameter above and constructs
     a combined prior from the uniform rate and sigma priors with the
@@ -189,5 +189,5 @@ class CombinedRateUniformSigmaAlphaFixedMuPriors(CombinedPrior):
 
     prior_classes = [UniformCosThetaLSRateHyperPrior,
                      UniformCosThetaLSSigmaHyperPrior,
-                     FixedUniformPercentageAlphaPrior,
+                     FixedUniformPercentageIsotropicFracPrior,
                      FixedCosThetaLSMean1Prior]

@@ -13,7 +13,7 @@ import warnings
 # warnings.filterwarnings('ignore', category=RuntimeWarning, 
 #                         message="divide by zero encountered in log")
 
-EPSILON = np.float(1e-30)
+EPSILON = np.float64(1e-30)
 
 def check_nan(arr):
     if np.any(np.isnan(arr)):

@@ -9,6 +9,13 @@ def logdiffexp(x, y):
     """ Evaluate log(exp(x) - exp(y)) """
     return x + np.log1p( - np.exp(y - x) )
 
+def compute_n_eff(weights):
+    """
+    computes n_eff from importance weights
+    """
+    n_eff = np.sum(weights)**2/np.sum(weights**2)
+    return n_eff
+
 class PopulationLikelihood(utils.JSONMixin):
     def __init__(self,
                  population_to_pe_ratio,
@@ -115,14 +122,24 @@ class PopulationLikelihood(utils.JSONMixin):
         return w_arr
 
     def _compute_vt(self, shape_hyperparams):
-        log_vt = (np.log(self.z) + np.log(self.t_obs)
-                 + logsumexp(self._compute_ln_prior_ratio(self.recovered_injections,
+        log_pop_to_inj = (self._compute_ln_prior_ratio(self.recovered_injections,
                                                 self.population_to_pe_ratio,
                                                 **shape_hyperparams)
                    + self._pe_to_inj_population_ratio_lnprior_arr
-                  + self.recovered_injections['log_weights']))
-        vt = np.exp(log_vt)
-        return vt
+                  + self.recovered_injections['log_weights'])
+        log_vt = (np.log(self.z) + np.log(self.t_obs)
+                  + logsumexp(log_pop_to_inj ))
+        log_s2 = (2 * np.log(self.t_obs) + 2 * np.log(self.z)  + np.logaddexp.reduce(
+                2 * (log_pop_to_inj)))
+        log_sig2 = logdiffexp(log_s2, 2.0*log_vt - np.log(self.n_inj))
+        n_eff = np.exp(2 * log_vt - log_sig2)
+
+        self.vt_n_eff = n_eff
+        
+        if n_eff>276:
+            return np.exp(log_vt)
+        else:
+            return np.inf
 
     def _compute_vt_and_neff(self, shape_hyperparams):
         """
@@ -156,15 +173,25 @@ class PopulationLikelihood(utils.JSONMixin):
         float array of shape (n_events,):
             Each entry is log(mean(prior_ratio(samples))).
         """
-        n_samples = np.array([len(samples) for samples in self.pe_samples])
+        # n_samples = np.array([len(samples) for samples in self.pe_samples])
+        # logsum_prior_ratios = np.array([
+        #     logsumexp(self._compute_ln_prior_ratio(samples, prior_ratio,
+        #                                            **shape_hyperparams)
+        #              + samples['log_weights'])
+        #     for samples in self.pe_samples])
+        # return logsum_prior_ratios
         
-        logsum_prior_ratios = np.array([
-            logsumexp(self._compute_ln_prior_ratio(samples, prior_ratio,
-                                                   **shape_hyperparams)
+        logsum_prior_ratios = []
+        for samples in self.pe_samples:
+            log_prior_ratio = (self._compute_ln_prior_ratio(samples, prior_ratio,**shape_hyperparams)
                      + samples['log_weights'])
-            for samples in self.pe_samples])
+            n_eff = compute_n_eff(np.exp(log_prior_ratio))
+            if n_eff>69:
+                logsum_prior_ratios.append(logsumexp(log_prior_ratio))
+            else:
+                logsum_prior_ratios.append(-np.inf)
 
-        return logsum_prior_ratios
+        return np.asarray(logsum_prior_ratios)
 
     def _compute_ln_prior_ratio(
             self, samples, prior_ratio, **shape_hyperparams):
@@ -206,13 +233,14 @@ class PopulationLikelihood(utils.JSONMixin):
         so that it is stored with the samples.
         """
         lnl = self.lnlike(par_dic)
-        return lnl, {'lnl': lnl}
+        return lnl, {'lnl': lnl, 'vt_n_eff': self.vt_n_eff}
 
     def get_blob(self, metadata):
         """
         Return dictionary of ancillary information ("blob"). This will
         be appended to the posterior samples as extra columns.
         """
+        metadata.update({'vt_n_eff': self.vt_n_eff})
         return metadata
 
     def get_init_dict(self):

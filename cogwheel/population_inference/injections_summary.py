@@ -50,12 +50,28 @@ class InjectionsSummary:
         self.obs_run = obs_run
 
         if using_lvc_injections:
-            mask_ifar_ge_one = np.logical_or.reduce((recovered_injections['ifar_gstlal']>=ifar_threshold, 
-                                                recovered_injections['ifar_pycbc_bbh']>=ifar_threshold,
-                                                recovered_injections['ifar_pycbc_hyperbank']>=ifar_threshold))
-            mask_ifar_ge_one_indices = np.where(mask_ifar_ge_one)[0]
-            self.recovered_injections = recovered_injections.iloc[mask_ifar_ge_one_indices].copy()
-            self.recovered_injections.reset_index(drop=True, inplace=True)
+            if 'name' in recovered_injections.keys():
+                print("doing combined detectors")
+                #using O1 + O2 + O3 injections so need to apply cut separately
+                mask_ifar_ge_one = np.logical_or.reduce((recovered_injections['ifar_gstlal']>=ifar_threshold, 
+                                                        recovered_injections['ifar_pycbc_bbh']>=ifar_threshold,
+                                                        recovered_injections['ifar_pycbc_hyperbank']>=ifar_threshold,
+                                                        recovered_injections['ifar_mbta']>=ifar_threshold))
+                mask_snr_ge_ten = recovered_injections['optimal_snr_net']>=10
+                mask_selected_injections = np.where(recovered_injections['name']==b'o3', mask_ifar_ge_one, mask_snr_ge_ten)
+                self.recovered_injections = recovered_injections.iloc[mask_selected_injections].copy()
+                self.recovered_injections.reset_index(drop=True, inplace=True)
+            else:
+                print("doing single detector")
+                #using from single run
+                mask_ifar_ge_one = np.logical_or.reduce((recovered_injections['ifar_gstlal']>=ifar_threshold, 
+                                                        recovered_injections['ifar_pycbc_bbh']>=ifar_threshold,
+                                                        recovered_injections['ifar_pycbc_hyperbank']>=ifar_threshold,
+                                                        recovered_injections['ifar_mbta']>=ifar_threshold))
+                mask_ifar_ge_one_indices = np.where(mask_ifar_ge_one)[0]
+                self.recovered_injections = recovered_injections.iloc[mask_ifar_ge_one_indices].copy()
+                self.recovered_injections.reset_index(drop=True, inplace=True)
+
         elif apply_lvc_pastro_cut:
             mask_pastro_ge_point5 = np.logical_or.reduce((recovered_injections['pastro_cwb']>=0.5, 
                                                 recovered_injections['pastro_gstlal']>=0.5,

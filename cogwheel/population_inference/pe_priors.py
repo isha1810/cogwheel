@@ -9,10 +9,10 @@ from .pdfs import (uniform, powerlaw,
                     smoothed_powerlaw,
                     smoothed_powerlaw_q,
                     smoothed_uniform,
-                    truncated_gaussian,
+                    truncated_gaussian
                     )
 from .jacobians import chieff_cumchidiff_to_s1z_s2z
-from cogwheel.cosmology import comoving_to_luminosity_diff_vt_ratio
+from cogwheel.cosmology import comoving_to_luminosity_diff_vt_ratio, _dz_dd_luminosity
 
 # ----------------------------------------------------------------------
 # Functions that compute log priors for LVC PE priors. #
@@ -38,17 +38,28 @@ def lvc_spin_lnp(s1x, s1y, s1z,
                   - np.log(4*np.pi*(s2x**2 + s2y**2 + s2z**2)*max_spin))
     return lnp
 
+def lvc_redshift_lnp(d_luminosity):
+    """
+    defined in params: (z)
+    uniform in comoving volume-comoving time
+    """
+    lnp = np.log(comoving_to_luminosity_diff_vt_ratio(d_luminosity)
+                 + 4*np.pi*d_luminosity**2 
+                 - _dz_dd_luminosity(d_luminosity))
+    return lnp
+
 def lvc_lnp_cosmo(s1x, s1y, s1z,
                   s2x, s2y, s2z,
+                  d_luminosity,
                   max_spin=0.998):
     """
     defined in params: (m1source, m2_source, s1x, s1y, s1z, s2x, s2y, s2z)
     cosmo => reweighted to be uniform in comoving volume time
     TODO: Add redshift prior
     """
-    lnp = lvc_mass_lnp() + lvc_spin_lnp(s1x, s1y, s1z,
-                                        s2x, s2y, s2z,
-                                        max_spin)
+    lnp = (lvc_mass_lnp() + 
+           lvc_spin_lnp(s1x, s1y, s1z, s2x, s2y, s2z, max_spin)
+           +lvc_redshift_lnp(d_luminosity))
     return lnp
 
 def isotropic_spins_marginal_chieff_lnp(chieff, q,

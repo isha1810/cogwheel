@@ -28,7 +28,7 @@ def alpha_beta_from_mu_var(mu, var):
     distribution given mean and variance of the 
     distribution
     """
-    omicron = (1-mu)*mu/var
+    omicron = (1-mu)*mu/var - 1
 
     alpha = mu*omicron
     beta = (1-mu)*omicron
@@ -67,7 +67,10 @@ def beta_spin_magnitudes_to_lvc_lnp(chi, alpha_chi, beta_chi):
     returns the log prior ratio of the spin magnitude beta
     distirbution to the lvc uniform magnitude distribution
     """
-    spin_magnitude_lnp = stats.beta.logpdf(chi, alpha_chi, beta_chi)
+    if np.logical_or(alpha_chi<=1, beta_chi<=1):
+        spin_magnitude_lnp = -np.inf
+    else:
+        spin_magnitude_lnp = stats.beta.logpdf(chi, alpha_chi, beta_chi)
     lvc_spin_magnitude_lnp = np.log(1)
     return spin_magnitude_lnp-lvc_spin_magnitude_lnp
 

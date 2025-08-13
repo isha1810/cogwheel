@@ -48,6 +48,9 @@ _LABELS = {
     's1phi': r'$\phi_{s1}$',
     's2phi': r'$\phi_{s2}$',
     'chip': r'$\chi_p$',
+    'chidiff':r'$\chi_{\rm diff}$',
+    'costhetals':r'$\cos(\theta_{\rm LS})$',
+    's_max': r'$s_{\rm max}$',
     # Distance
     'd_hat': r'$\hat{d}$',
     'd_luminosity': r'$d_L$',
@@ -89,6 +92,25 @@ _LABELS = {
     'u_psi': r'$u_\psi$',
     'u_costhetanet': r'$u_{\theta_{\rm net}}$',
     'u_phinet_hat': r'$u_{\hat\phi_{\rm net}}$',
+    # Population
+    'rate':r"$\mathcal{R}$",
+    'lambda_peak':r"$\lambda_{\rm peak}$",
+    'alpha': r"$\alpha$",
+    'm_min': r"$m_{\rm min}$",
+    'm_max': r"$m_{\rm max}$",
+    'm_mean': r"$\mu_{\rm m}$",
+    'm_std': r"$\sigma_{\rm m}$",
+    'beta': r"$\beta$",
+    'mu_chi': r"$\mu_{\chi}$",
+    'sigma_chi': r"$\sigma_{\chi}$",
+    'costhetals':r'$\cos(\theta_{\rm LS})$',
+    'cos_theta_ls_mean':r'$\mu_{LS}$',
+    'cos_theta_ls_std':r'$\sigma_{LS}$',
+    'zeta': r'$\zeta$',
+    'chi_max_i': r'$\chi_{\rm max}^{\rm isotropic}$',
+    'chi_max_a': r'$\chi_{\rm max}^{\rm aligned}$',
+    'chi_max': r'$\chi_{\rm max}$',
+    'sigma_z': r'$\sigma_z$'
     }
 
 _UNITS = (dict.fromkeys(['mchirp', 'm1', 'm2', 'mtot', 'mtot_source',
@@ -96,7 +118,8 @@ _UNITS = (dict.fromkeys(['mchirp', 'm1', 'm2', 'mtot', 'mtot_source',
                         r'M$_\odot$')
           | dict.fromkeys(['t_refdet', 'tc', 't_geocenter', 't_linfree'], 's')
           | {'d_hat': r'$\frac{\rm{Mpc}}{M_{\odot}^{5/6}}$',
-             'd_luminosity': 'Mpc',}
+             'd_luminosity': 'Mpc',
+            'rate': r'$\text{Gpc}^{-3}\text{yr}^{-1}$',}
          )
 
 class LatexLabels(plotting.LatexLabels):

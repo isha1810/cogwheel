@@ -10,6 +10,7 @@ from .jacobians import m1_m2_to_m1s_q
 from .pe_priors import (lvc_mass_lnp,
                         ias_o1o2_injection_lnp,
                         isotropic_spins_marginal_chieff_lnp)
+from .pdfs import uniform
 
 # ----------------------------------------------------------------------
 # PriorRatios involving IAS Injection Prior and LVC PE Prior 

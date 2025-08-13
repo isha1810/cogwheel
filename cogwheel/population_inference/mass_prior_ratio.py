@@ -34,7 +34,8 @@ class PLPToLVCPriorRatio(PriorRatio):
                    'm_mean', 'm_std', 'beta']
 
     def compute_auxiliary_quantities(self, samples):
-        samples['z'] = z_of_d_luminosity(samples['d_luminosity'])
+        if 'z' not in samples.keys():
+            samples['z'] = z_of_d_luminosity(samples['d_luminosity'])
         samples['lvc_mass_lnp'] = (lvc_mass_lnp()
                                    + m1_m2_to_m1s_q(samples['m1_source'], samples['z']))
         
@@ -45,9 +46,7 @@ class PLPToLVCPriorRatio(PriorRatio):
                             m_min, m_max, m_mean, m_std)
                          + powerlaw_mass_ratio_lnp(q, m1_source, beta, m_min))
 
-        time_dilation = -np.log(1+z)
-        pop_mass_lnp = (mass_lnp
-                   + time_dilation)
+        pop_mass_lnp = mass_lnp
         return pop_mass_lnp-lvc_mass_lnp
 
 # Powerlaw+peak mass Prior Ratio - with smoothing
@@ -61,7 +60,8 @@ class SmoothedPLPToLVCPriorRatio(PriorRatio):
                    'm_mean', 'm_std', 'beta', 'delta_m']
 
     def compute_auxiliary_quantities(self, samples):
-        samples['z'] = z_of_d_luminosity(samples['d_luminosity'])
+        if 'z' not in samples.keys():
+            samples['z'] = z_of_d_luminosity(samples['d_luminosity'])
         samples['lvc_mass_lnp'] = (lvc_mass_lnp()
                                    + m1_m2_to_m1s_q(samples['m1_source'], samples['z']))
         
@@ -73,9 +73,7 @@ class SmoothedPLPToLVCPriorRatio(PriorRatio):
                          + smoothed_powerlaw_mass_ratio_lnp(q, m1_source, beta, m_min, m_max,
                                                             delta_m))
 
-        time_dilation = -np.log(1+z)
-        pop_mass_lnp = (mass_lnp
-                   + time_dilation)
+        pop_mass_lnp = mass_lnp
         return pop_mass_lnp-lvc_mass_lnp
 
 # ----------------------------------------------------------------------
@@ -90,7 +88,8 @@ class PowerlawToLVCPriorRatio(PriorRatio):
     hyperparams = ['alpha', 'm_min', 'm_max', 'beta']
 
     def compute_auxiliary_quantities(self, samples):
-        samples['z'] = z_of_d_luminosity(samples['d_luminosity'])
+        if 'z' not in samples.keys():
+            samples['z'] = z_of_d_luminosity(samples['d_luminosity'])
         
         samples['lvc_mass_lnp'] = (lvc_mass_lnp()
                               + m1_m2_to_m1s_q(samples['m1_source'], samples['z']))
@@ -101,8 +100,5 @@ class PowerlawToLVCPriorRatio(PriorRatio):
         mass_lnp = (powerlaw_primary_mass_lnp(m1_source, alpha, m_min, m_max)
                          + powerlaw_mass_ratio_lnp(q, m1_source, beta, m_min))
 
-        time_dilation = -np.log(1+z)
-        pop_mass_lnp = (mass_lnp
-                   + time_dilation)
+        pop_mass_lnp = mass_lnp
         return pop_mass_lnp-lvc_mass_lnp
-

@@ -80,6 +80,10 @@ class LVCPriorToLVCInjectionPriorRatio(PriorRatio):
 # PriorRatios involving Combined LVC Injection Prior and LVC PE Prior 
 # I am using the O1 and O2 injection priors from zenodo since I am unable
 # to reproduce the values myself
+cosmo = FlatwCDM(H0=67.9, Om0=0.3065, w0=-1)
+def f_z(z, pow_z):
+    dVc_dz = cosmo.differential_comoving_volume(z).to(u.Gpc**3 / u.sr).value * 4 * np.pi
+    return (1 + z)**(pow_z - 1)* dVc_dz
 
 class CombinedLVCInjectionPriorToLVCPriorRatio(PriorRatio):
     '''
@@ -104,7 +108,7 @@ class CombinedLVCInjectionPriorToLVCPriorRatio(PriorRatio):
                               + m1_m2_to_m1s_m2s(samples['z'])
                               + lvc_spin_lnp(samples['s1x'], samples['s1y'], samples['s1z'],
                                             samples['s2x'], samples['s2y'], samples['s2z'])
-                              + lvc_redshift_lnp(samples['d_luminosity'])
+                              + np.log(f_z(samples['z'], 0))
                               )
             else:
                 lvc_injection_lnp = lvc_injection_mass_lnp(samples['m1_source'],
@@ -116,11 +120,6 @@ class CombinedLVCInjectionPriorToLVCPriorRatio(PriorRatio):
 
     def lnprior_ratio(self, z, lvc_injection_to_lvc_pe_mass_lnp):
         return (lvc_injection_to_lvc_pe_mass_lnp)
-
-cosmo = FlatwCDM(H0=67.9, Om0=0.3065, w0=-1)
-def f_z(z, pow_z):
-    dVc_dz = cosmo.differential_comoving_volume(z).to(u.Gpc**3 / u.sr).value * 4 * np.pi
-    return (1 + z)**(pow_z - 1)* dVc_dz
     
 class LVCPriorToCombinedLVCInjectionPriorRatio(PriorRatio):
     '''

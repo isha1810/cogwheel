@@ -48,6 +48,9 @@ class LatexLabels(dict):
         return self[par]
 
     def __missing__(self, par):
+        if isinstance(par, str) and par.startswith('folded_'):
+            label = self[par.removeprefix('folded_')]
+            return rf'{label}$^{{\rm folded}}$'.replace('$$', '')
         return par
 
 
@@ -143,6 +146,10 @@ class PlotStyle:
         zooming in on the interesting part of the distribution if
         there are a few outlier samples.
         0 (default) includes all samples.
+
+    See Also
+    --------
+    CornerPlot, MultiCornerPlot
     """
     # Defaults:
     KWARGS_1D = {'color': 'C0'}
@@ -274,8 +281,8 @@ class CornerPlot:
     Class for making a corner plot of a multivariate distribution if you
     have samples from the distribution.
 
-    Public methods
-    --------------
+    Methods
+    -------
     plot: Make a corner plot.
     scatter_points: Plot points on a corner plot (e.g. "truths").
     set_lims: Edit the limits of a corner plot.
@@ -312,6 +319,65 @@ class CornerPlot:
         **plotstyle_kwargs
             Passed to ``PlotStyle`` constructor, ignored if `plotstyle`
             is passed.
+
+        Other parameters
+        ----------------
+        confidence_level: float between 0 and 1, or ``None``
+            Determines the reported confidence interval around the
+            median (highlighted band in 1-d marginal probability and
+            numeric values in the subplot titles). If ``None``, both
+            the numerical values and highlighted bands are removed.
+
+        contour_fractions: sequence of floats
+            Fractions of the distribution to enclose by 2-d contours.
+
+        bins: int | {'rice', 'sturges', 'sqrt'}
+            How many histogram bins to use, the same for all parameters.
+
+        color_2d: str, RGB tuple, etc.
+            Color used for the 2-d marginal distributions.
+
+        contour_kwargs: dict
+            Keyword arguments to `plt.contour` and `plt.contourf`
+
+        vline_kwargs: dict
+            Keyword arguments to `plt.plot` for the vertical lines
+            signaling medians and 1-d confidence intervals.
+
+        vfill_kwargs: dict
+            Keyword arguments to `plt.fill_between` for 1-d plots.
+
+        kwargs_1d: dict
+            Keyword arguments to `plt.plot` for 1-d plots.
+
+        clabel_kwargs: dict, optional
+            Keyword arguments for contour labels. Pass an empty `dict`
+            to use defaults. ``None`` draws no contour labels.
+
+        fill: {'gradient', 'flat', 'none'}
+            How to display 2-d marginal distributions:
+            'gradient' displays the 2-d pdf with a transparency gradient
+            'flat' fills the contours with a flat transparent color
+            'none' shows just the contours
+
+        smooth: float
+            Smooth the 2d histograms by convolving them with a Gaussian
+            kernel with this standard deviation in pixel units.
+            0 (default) does no smoothing.
+
+        density: bool
+            Whether to normalize the 1-d histograms to integrate to 1.
+
+        tail_probability: float between 0 and 1
+            Disregard `tail_probability / 2` of the distribution to
+            either side in the plots. Used as an automatic way of
+            zooming in on the interesting part of the distribution if
+            there are a few outlier samples.
+            0 (default) includes all samples.
+
+        See Also
+        --------
+        MultiCornerPlot
         """
         self.samples = samples.dropna()
         self.latex_labels = latex_labels or self.DEFAULT_LATEX_LABELS
@@ -324,8 +390,8 @@ class CornerPlot:
         self.fig = None
         self.axes = None
 
-    def plot(self, fig=None, title=None, max_figsize=10., max_n_ticks=4,
-             label=None, legend_title=None):
+    def plot(self, fig=None, title=None, max_figsize=10., max_subplot_size=1.5, 
+             max_n_ticks=4, label=None, legend_title=None):
         """
         Make a corner plot of the distribution.
 
@@ -342,6 +408,10 @@ class CornerPlot:
             Maximum size in inches of a side of the square figure.
             Ignored if `fig` is passed.
 
+        max_subplot_size: float
+            Maximum subplot size in inches of a side.
+            Ignored if `fig` is passed.
+
         max_n_ticks: int
             Determines the number of ticks in each subplot. Ignored if
             `fig` is passed.
@@ -352,7 +422,7 @@ class CornerPlot:
         legend_title: str, optional
             Legend title.
         """
-        self._setup_fig(fig, max_figsize, max_n_ticks=max_n_ticks)
+        self._setup_fig(fig, max_figsize, max_subplot_size=1.5, max_n_ticks=max_n_ticks)
 
         for par in self.params:
             self._plot_1d(par, label)
@@ -442,10 +512,12 @@ class CornerPlot:
             ax.set_xlabel(self.latex_labels.with_units(xpar))
             ax.set_ylabel(self.latex_labels.with_units(ypar))
 
+        contour_kwargs = self.plotstyle.get_contour_kwargs()
+        alpha_multiplier = contour_kwargs.pop('alpha_multiplier', 1)
+
         pdf, extent = self._get_pdf_2d(xpar, ypar)
         levels = self._get_levels(pdf)
-        contour = ax.contour(pdf, extent=extent, levels=levels,
-                             **self.plotstyle.get_contour_kwargs())
+        contour = ax.contour(pdf, extent=extent, levels=levels, **contour_kwargs)
 
         if self.plotstyle.clabel_kwargs is not None:
             clabels = [
@@ -460,11 +532,11 @@ class CornerPlot:
                       cmap=cmap, interpolation='bicubic', vmin=0)
 
         elif self.plotstyle.fill == 'flat':
-            alphas = 1 - self.plotstyle.decreasing_contour_fractions
+            alphas = alpha_multiplier * (1 - self.plotstyle.decreasing_contour_fractions)
             next_levels = *levels[1:], np.inf
             for *level_edges, alpha in zip(levels, next_levels, alphas):
                 ax.contourf(pdf, extent=extent, levels=level_edges,
-                            alpha=alpha, **self.plotstyle.get_contour_kwargs())
+                            alpha=alpha, **contour_kwargs)
 
     def _get_pdf_2d(self, xpar, ypar):
         mask = (self._get_tail_probability_mask(xpar)
@@ -527,6 +599,35 @@ class CornerPlot:
         ax.autoscale(axis='y')
         ax.set_ylim(0, None)
 
+    def plot_1d_marginals_horizontal(self, title=None, label=None):
+        """
+        Plot 1D marginal distributions of each parameter in a horizontal row.
+    
+        Parameters
+        ----------
+        title : str, optional
+        Figure title.
+        label : str, optional
+        Legend label.
+        """
+        n = len(self.params)
+        width = min(n * 2, 15)  # Each subplot ~2 inches wide, cap at 15
+        height = 2.5
+
+        self.fig, axs = plt.subplots(1, n, figsize=(width, height), constrained_layout=True)
+
+        # Ensure axs is always an array, even if n = 1
+        if n == 1:
+            axs = np.array([axs])
+    
+        # Create fake axes grid to mimic corner style but only populate diagonal
+        self.axes = np.full((n, n), None)
+        for i, ax in enumerate(axs):
+            self.axes[i, i] = ax
+
+        for par in self.params:
+            self._plot_1d(par, label=label)
+
     def _get_bins(self):
         """Implement rules for choosing bins for weighted samples."""
         if isinstance(self.plotstyle.bins, str):
@@ -577,7 +678,7 @@ class CornerPlot:
             Parameter name from ``self.params``.
 
         Returns
-        ------
+        -------
         (median, a, b): median and bounds of the variable.
         """
         tail_prob = (1 - self.plotstyle.confidence_level) / 2
@@ -664,7 +765,7 @@ class CornerPlot:
 
         Parameters
         ----------
-        **lims:
+        **lims
             Keyword arguments of the form ``par=(vmin, vmax)`` for those
             parameters whose limits that are to be adjusted.
         """
@@ -682,8 +783,8 @@ class MultiCornerPlot:
     Class for overlaying multiple distributions on the same corner plot
     given samples from each of the distributions.
 
-    Public methods
-    --------------
+    Methods
+    -------
     plot: Make a corner plot.
     scatter_points: Plot points on a corner plot (e.g. "truths").
     set_lims: Edit the limits of a corner plot.
@@ -720,6 +821,61 @@ class MultiCornerPlot:
         **plotstyle_kwargs:
             Passed to ``PlotStyle`` constructor to override defaults.
             Ignored if `plotstyles` is passed.
+
+        Other parameters
+        ----------------
+        confidence_level: float between 0 and 1, or ``None``
+            Determines the reported confidence interval around the
+            median (highlighted band in 1-d marginal probability and
+            numeric values in the subplot titles). If ``None``, both
+            the numerical values and highlighted bands are removed.
+
+        contour_fractions: sequence of floats
+            Fractions of the distribution to enclose by 2-d contours.
+
+        bins: int | {'rice', 'sturges', 'sqrt'}
+            How many histogram bins to use, the same for all parameters.
+
+        color_2d: str, RGB tuple, etc.
+            Color used for the 2-d marginal distributions.
+
+        contour_kwargs: dict
+            Keyword arguments to `plt.contour` and `plt.contourf`
+
+        vline_kwargs: dict
+            Keyword arguments to `plt.plot` for the vertical lines
+            signaling medians and 1-d confidence intervals.
+
+        vfill_kwargs: dict
+            Keyword arguments to `plt.fill_between` for 1-d plots.
+
+        kwargs_1d: dict
+            Keyword arguments to `plt.plot` for 1-d plots.
+
+        clabel_kwargs: dict, optional
+            Keyword arguments for contour labels. Pass an empty `dict`
+            to use defaults. ``None`` draws no contour labels.
+
+        fill: {'gradient', 'flat', 'none'}
+            How to display 2-d marginal distributions:
+            'gradient' displays the 2-d pdf with a transparency gradient
+            'flat' fills the contours with a flat transparent color
+            'none' shows just the contours
+
+        smooth: float
+            Smooth the 2d histograms by convolving them with a Gaussian
+            kernel with this standard deviation in pixel units.
+            0 (default) does no smoothing.
+
+        density: bool
+            Whether to normalize the 1-d histograms to integrate to 1.
+
+        tail_probability: float between 0 and 1
+            Disregard `tail_probability / 2` of the distribution to
+            either side in the plots. Used as an automatic way of
+            zooming in on the interesting part of the distribution if
+            there are a few outlier samples.
+            0 (default) includes all samples.
         """
         if labels is None:
             labels = [None] * len(dataframes)
@@ -749,8 +905,8 @@ class MultiCornerPlot:
         self.set_lims = self.corner_plots[0].set_lims
         self.scatter_points = self.corner_plots[0].scatter_points
 
-    def plot(self, max_figsize=10., max_n_ticks=4, title=None,
-             legend_title=None):
+    def plot(self, max_figsize=10., max_subplot_size=1.5, max_n_ticks=4, 
+             title=None, legend_title=None):
         """
         Make a corner plot with all distributions overlaid.
 
@@ -758,6 +914,9 @@ class MultiCornerPlot:
         ----------
         max_figsize: float
             Maximum size in inches of a side of the square figure.
+
+        max_subplot_size: float
+            Maximum subplot size in inches of a side.
 
         max_n_ticks: int
             Determines the number of ticks in each subplot.
@@ -770,10 +929,77 @@ class MultiCornerPlot:
         """
         fig = None
         for corner_plot, label in zip(self.corner_plots, self.labels):
-            corner_plot.plot(fig=fig, max_figsize=max_figsize,
+            corner_plot.plot(fig=fig, max_figsize=max_figsize, 
+                             max_subplot_size=max_subplot_size, 
                              max_n_ticks=max_n_ticks, label=label, title=title,
                              legend_title=legend_title)
             fig = corner_plot.fig
+
+    def plot_1d_marginals_horizontal(self, title=None, legend_fontsize=12):
+        """
+        Plot overlaid 1D marginal distributions in a single horizontal row.
+        
+        Parameters
+        ----------
+        title : str, optional
+            Title for the full figure.
+        
+        legend_fontsize : int
+            Font size for the legend.
+        """
+        import matplotlib.pyplot as plt
+        import numpy as np
+        
+        params = self.corner_plots[0].params
+        labels = self.labels
+        n = len(params)
+        width = min(n * 2.2, 16)
+        height = 2.8
+        
+        fig, axs = plt.subplots(1, n, figsize=(width, height), constrained_layout=False)
+        
+        if n == 1:
+            axs = [axs]  # ensure iterable if only one parameter
+        
+        # Plot all distributions on shared axes
+        for corner_plot, label in zip(self.corner_plots, labels):
+            corner_plot.fig = fig
+            corner_plot.axes = np.full((n, n), None)
+            for i, par in enumerate(params):
+                ax = axs[i]
+                corner_plot.axes[i, i] = ax
+                corner_plot._plot_1d(par, label=label if i == 0 else None)  # show legend label only once
+        
+        # Set axis labels using LaTeX labels (with units if available)
+        label_map = self.corner_plots[0].latex_labels
+        for i, par in enumerate(params):
+            axs[i].set_xlabel(label_map.with_units(par))
+        
+            # Optional Enhancement: only first subplot gets y-axis label
+            # axs[i].set_ylabel("PDF" if i == 0 else "")
+            # Remove all y-axis ticks and numbers
+            axs[i].set_yticks([])
+            axs[i].set_yticklabels([])
+            axs[i].tick_params(axis='y', which='both', left=False)
+        
+        # Adjust subplot spacing
+        fig.subplots_adjust(right=0.85, bottom=0.25)
+        
+        # Add legend outside the plot
+        handles, legend_labels = axs[0].get_legend_handles_labels()
+        if handles:
+            fig.legend(
+                handles, legend_labels,
+                loc='center left', bbox_to_anchor=(0.87, 0.5),
+                frameon=True, fontsize=legend_fontsize
+            )
+        
+        # Optional title
+        if title:
+            fig.suptitle(title, y=1.05)
+        
+        self.fig1d = fig  # Store the figure in the instance
+
 
     def plot_2d(self, xpar, ypar, ax=None):
         """

@@ -47,9 +47,16 @@ class PriorRatio(ABC):
     @property
     @abstractmethod
     def params(cls):
-        """List of event-parameter names."""
+        """List of event-parameter names that define the PriorRatio."""
         return []
 
+    @classmethod
+    @property
+    @abstractmethod
+    def conditioned_on(cls):
+        """List of event-parameter names that the PriorRatio is conditioned on."""
+        return []
+    
     @classmethod
     @property
     @abstractmethod
@@ -68,13 +75,13 @@ class PriorRatio(ABC):
     @property
     @abstractmethod
     def derived_quantities(cls):
-        """List of event quantities to compute. These are functions of base_quantities"""
+        """List of event-quantities derived from 'base_quantities'."""
         return []
 
     def compute_auxiliary_quantities(self, samples):
         """
         Add columns of `derived_quantities` in place to 
-        `samples` dataframe. 
+        `samples` dataframe. Should be vectorized.
         Override this method if `derived_quantities` is 
         not empty.
 
@@ -89,7 +96,7 @@ class PriorRatio(ABC):
     @abstractmethod
     def lnprior_ratio(self, *args, **kwargs):
         """
-        Take `*params` and `*hyperparms` and return log of the prior
+        Take `*params` and `*hyperparams` and return log of the prior
         ratio.
 
         Implementations should be vectorized over the ``*params``
@@ -118,7 +125,7 @@ class PriorRatio(ABC):
         super().__init_subclass__()
 
         func = cls.lnprior_ratio
-        params = cls.params + cls.derived_quantities + cls.hyperparams
+        params = cls.params + cls.conditioned_on + cls.derived_quantities + cls.hyperparams
         if not has_compatible_signature(func, params):
             raise PriorRatioError(
                     f'Expected signature of `{func.__qualname__}` to accept '
@@ -147,6 +154,14 @@ class CombinedPriorRatio(PriorRatio):
         return [par
                 for prior_ratio_class in cls.prior_ratio_classes
                 for par in prior_ratio_class.params]
+
+    @utils.ClassProperty
+    def conditioned_on(cls):
+        """List of event-parameter names."""
+        unique_conditioned_on = set([par
+                for prior_ratio_class in cls.prior_ratio_classes
+                for par in prior_ratio_class.conditioned_on])
+        return list(unique_conditioned_on)
 
     @utils.ClassProperty
     def hyperparams(cls):
@@ -189,11 +204,14 @@ class CombinedPriorRatio(PriorRatio):
         # Witchcraft to fix the lnprior_ratio signature:
         self_parameter = inspect.Parameter('self',
                                            inspect.Parameter.POSITIONAL_ONLY)
+        # unique_params_conditioned_on = list(set(cls.params + cls.conditioned_on))
         parameters = [self_parameter] + [
             inspect.Parameter(par, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-            for par in cls.params + cls.derived_quantities + cls.hyperparams]
+            for par in cls.params + cls.conditioned_on + cls.derived_quantities + cls.hyperparams]
+        print(parameters)
         cls.lnprior_ratio.__signature__ = inspect.signature(
             cls.lnprior_ratio).replace(parameters=parameters)
+        print(cls.lnprior_ratio.__signature__)
         super().__init_subclass__()
 
     def __init__(self):
@@ -226,7 +244,10 @@ class CombinedPriorRatio(PriorRatio):
 
         lnp_ratio = 0.0
         for prior_ratio in self.prior_ratios:
-            keys = prior_ratio.params + prior_ratio.derived_quantities + prior_ratio.hyperparams
+            keys = (prior_ratio.params
+                    + prior_ratio.conditioned_on
+                    + prior_ratio.derived_quantities
+                    + prior_ratio.hyperparams)
             kwargs_sub = {key: kwargs[key] for key in keys}
             lnp_ratio += prior_ratio.lnprior_ratio(**kwargs_sub)
 

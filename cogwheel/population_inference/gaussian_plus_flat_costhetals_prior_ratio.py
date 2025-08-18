@@ -415,6 +415,18 @@ class CombinedRateUniformMuSigmaSpinZeroIsotropicFracPriors(CombinedPrior):
         UniformCosThetaLSMeanHyperPrior
     ]
 
+class CombinedRateUniformSigmaSpinIsotropicFracPriorFixedMuOnePriors(CombinedPrior):
+
+    default_likelihood_class = PopulationLikelihood
+
+    prior_classes = [
+        UniformCosThetaLSRateHyperPrior,
+        UniformCosThetaLSSigmaHyperPrior,
+        UniformSpinPrior,
+        UniformIsotropicFracPrior,
+        FixedCosThetaLSMean1Prior
+    ]
+
 class CombinedRateUniformSigmaSpinZeroIsotropicFracPriorsOneMu(CombinedPrior):
 
     default_likelihood_class = PopulationLikelihood

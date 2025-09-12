@@ -50,17 +50,21 @@ class InjectionsSummary:
         self.obs_run = obs_run
 
         if using_lvc_injections:
-            if 'snr' in recovered_injections.keys():
-                print("doing runs that contain semianalytic injections")
-                #using O1 + O2 + O3 injections so need to apply cut separately
-
-                # mask_ifar_ge_one = np.logical_or.reduce((recovered_injections['ifar_gstlal']>=ifar_threshold, 
-                #                                         recovered_injections['ifar_pycbc_bbh']>=ifar_threshold,
-                #                                         recovered_injections['ifar_pycbc_hyperbank']>=ifar_threshold,
-                #                                         recovered_injections['ifar_mbta']>=ifar_threshold))
-                # mask_snr_ge_ten = recovered_injections['optimal_snr_net']>=10
-                # mask_selected_injections = np.where(recovered_injections['name']==b'o3', mask_ifar_ge_one, mask_snr_ge_ten)
-                
+            if 'name' in recovered_injections.keys():
+                #using O1, O2, O3 injections so need to apply cut separately
+                print('doing runs that contain semianalytic injections: O1-O3')
+                mask_ifar_ge_one = np.logical_or.reduce((recovered_injections['ifar_gstlal']>=ifar_threshold, 
+                                                        recovered_injections['ifar_pycbc_bbh']>=ifar_threshold,
+                                                        recovered_injections['ifar_pycbc_hyperbank']>=ifar_threshold,
+                                                        recovered_injections['ifar_mbta']>=ifar_threshold))
+                mask_snr_ge_ten = recovered_injections['optimal_snr_net']>=10
+                mask_selected_injections = np.where(recovered_injections['name']==b'o3', mask_ifar_ge_one, mask_snr_ge_ten)
+                recovered_injections = recovered_injections.drop('name', axis=1)
+                self.recovered_injections = recovered_injections[mask_selected_injections].copy()
+                self.recovered_injections.reset_index(drop=True, inplace=True)
+            elif 'snr' in recovered_injections.keys():
+                print("doing runs that contain semianalytic injections: O1-O4a")
+                #using O1 - O4a injections so need to apply cut separately
                 snr_thr = 10
                 far_thr = 1.0
                 mask_selected_injections = (recovered_injections['snr'] > snr_thr) | (recovered_injections['far'] < far_thr)

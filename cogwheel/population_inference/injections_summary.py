@@ -50,19 +50,24 @@ class InjectionsSummary:
         self.obs_run = obs_run
 
         if using_lvc_injections:
-            if 'name' in recovered_injections.keys():
-                print("doing combined detectors")
+            if 'snr' in recovered_injections.keys():
+                print("doing runs that contain semianalytic injections")
                 #using O1 + O2 + O3 injections so need to apply cut separately
-                mask_ifar_ge_one = np.logical_or.reduce((recovered_injections['ifar_gstlal']>=ifar_threshold, 
-                                                        recovered_injections['ifar_pycbc_bbh']>=ifar_threshold,
-                                                        recovered_injections['ifar_pycbc_hyperbank']>=ifar_threshold,
-                                                        recovered_injections['ifar_mbta']>=ifar_threshold))
-                mask_snr_ge_ten = recovered_injections['optimal_snr_net']>=10
-                mask_selected_injections = np.where(recovered_injections['name']==b'o3', mask_ifar_ge_one, mask_snr_ge_ten)
-                self.recovered_injections = recovered_injections.iloc[mask_selected_injections].copy()
+
+                # mask_ifar_ge_one = np.logical_or.reduce((recovered_injections['ifar_gstlal']>=ifar_threshold, 
+                #                                         recovered_injections['ifar_pycbc_bbh']>=ifar_threshold,
+                #                                         recovered_injections['ifar_pycbc_hyperbank']>=ifar_threshold,
+                #                                         recovered_injections['ifar_mbta']>=ifar_threshold))
+                # mask_snr_ge_ten = recovered_injections['optimal_snr_net']>=10
+                # mask_selected_injections = np.where(recovered_injections['name']==b'o3', mask_ifar_ge_one, mask_snr_ge_ten)
+                
+                snr_thr = 10
+                far_thr = 1.0
+                mask_selected_injections = (recovered_injections['snr'] > snr_thr) | (recovered_injections['far'] < far_thr)
+                self.recovered_injections = recovered_injections[mask_selected_injections].copy()
                 self.recovered_injections.reset_index(drop=True, inplace=True)
             else:
-                print("doing single detector")
+                print("doing single run")
                 #using from single run
                 mask_ifar_ge_one = np.logical_or.reduce((recovered_injections['ifar_gstlal']>=ifar_threshold, 
                                                         recovered_injections['ifar_pycbc_bbh']>=ifar_threshold,

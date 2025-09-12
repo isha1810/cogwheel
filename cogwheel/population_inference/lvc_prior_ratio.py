@@ -103,7 +103,7 @@ class CombinedLVCInjectionPriorToLVCPriorRatio(PriorRatio):
 
         if 'lvc_injection_to_lvc_pe_mass_lnp' not in samples.keys():
             if 'sampling_pdf' in samples.keys():
-                lvc_injection_lnp = samples['sampling_pdf']
+                lvc_injection_lnp = np.log(samples['sampling_pdf'])
                 lvc_pe_lnp = (lvc_mass_lnp()
                               + m1_m2_to_m1s_m2s(samples['z'])
                               + lvc_spin_lnp(samples['s1x'], samples['s1y'], samples['s1z'],

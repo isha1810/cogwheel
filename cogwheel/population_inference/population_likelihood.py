@@ -85,13 +85,19 @@ class PopulationLikelihood(utils.JSONMixin):
         self.list_of_evnames = events_summary.events
         self.pe_samples = events_summary.pe_samples_array
         self.pastro_ref = events_summary.pastros_array
+        self.n_events = len(list_of_evnames)
 
         self.rate0 = rate0
 
         self.params = self.population_to_pe_ratio.hyperparams + ['rate']
-        
-        self._ln_w_denom_arr = self._compute_ln_avg_prior_ratios(
+
+        _ln_w_denom_arr = self._compute_ln_avg_prior_ratios(
             self.ref_population_to_pe_ratio)
+        # elements set to ninfs in denominator have to be converted to infs
+        # for lnlike to be ninf
+        self._ln_w_denom_arr = np.where(np.isneginf(_ln_w_denom_arr),
+                                        np.inf,
+                                        _ln_w_denom_arr)
 
         self._pe_to_inj_population_ratio_lnprior_arr \
             = pe_to_inj_population_ratio.lnprior_ratio(
@@ -136,7 +142,7 @@ class PopulationLikelihood(utils.JSONMixin):
 
         self.vt_n_eff = n_eff
         
-        if n_eff>276:
+        if n_eff>4*self.n_events:
             return np.exp(log_vt)
         else:
             return np.inf
@@ -186,10 +192,11 @@ class PopulationLikelihood(utils.JSONMixin):
             log_prior_ratio = (self._compute_ln_prior_ratio(samples, prior_ratio,**shape_hyperparams)
                      + samples['log_weights'])
             n_eff = compute_n_eff(np.exp(log_prior_ratio))
-            if n_eff>69:
+            if n_eff>self.n_events:
                 logsum_prior_ratios.append(logsumexp(log_prior_ratio))
             else:
-                logsum_prior_ratios.append(-np.inf)
+                logsum_prior_ratios.append(np.NINF)
+            logsum_prior_ratios.append(logsumexp(log_prior_ratio))
 
         return np.asarray(logsum_prior_ratios)
 

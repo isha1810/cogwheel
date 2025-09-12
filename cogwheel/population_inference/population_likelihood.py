@@ -85,7 +85,7 @@ class PopulationLikelihood(utils.JSONMixin):
         self.list_of_evnames = events_summary.events
         self.pe_samples = events_summary.pe_samples_array
         self.pastro_ref = events_summary.pastros_array
-        self.n_events = len(list_of_evnames)
+        self.n_events = len(self.list_of_evnames)
 
         self.rate0 = rate0
 

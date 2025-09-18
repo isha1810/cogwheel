@@ -196,7 +196,6 @@ class PopulationLikelihood(utils.JSONMixin):
                 logsum_prior_ratios.append(logsumexp(log_prior_ratio))
             else:
                 logsum_prior_ratios.append(np.NINF)
-            logsum_prior_ratios.append(logsumexp(log_prior_ratio))
 
         return np.asarray(logsum_prior_ratios)
 
